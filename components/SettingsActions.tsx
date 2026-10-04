@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { runHubSpotSetup, sendTestAlert } from "@/app/admin/actions";
+import { checkDeadlinesNow } from "@/app/admin/deal-actions";
 
 export default function SettingsActions({ hubspot, alerts }: { hubspot: boolean; alerts: boolean }) {
   const [msg, setMsg] = useState<{ ok: boolean; message: string } | null>(null);
@@ -21,6 +22,19 @@ export default function SettingsActions({ hubspot, alerts }: { hubspot: boolean;
         HubSpot setup creates the "Cost Seg Trust" deal pipeline with your seven stages and a unique request-ID field that blocks duplicate deals. Running it again changes nothing.
       </p>
       {pending ? <p className="small muted" style={{ margin: 0 }}>Working…</p> : null}
+      {msg ? <p className={`notice ${msg.ok ? "ok" : "bad"}`} style={{ margin: 0 }}>{msg.message}</p> : null}
+    </div>
+  );
+}
+
+export function DeadlineCheck() {
+  const [msg, setMsg] = useState<{ ok: boolean; message: string } | null>(null);
+  const [pending, start] = useTransition();
+  return (
+    <div className="card" style={{ display: "grid", gap: 12 }}>
+      <h3>Supplier deadlines</h3>
+      <div><button className="btn" disabled={pending} onClick={() => start(async () => setMsg(await checkDeadlinesNow()))}>Check deadlines now</button></div>
+      <p className="small muted" style={{ margin: 0 }}>Sends any due reminders and closes any quote windows that have run out. Running it twice never double-sends.</p>
       {msg ? <p className={`notice ${msg.ok ? "ok" : "bad"}`} style={{ margin: 0 }}>{msg.message}</p> : null}
     </div>
   );

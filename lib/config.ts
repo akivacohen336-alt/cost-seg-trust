@@ -36,6 +36,17 @@ export const config = {
     baseUrl: env("TWILIO_API_URL") ?? "https://api.twilio.com",
   },
 
+  anthropic: {
+    apiKey: env("ANTHROPIC_API_KEY"),
+    baseUrl: env("ANTHROPIC_BASE_URL"),
+    model: env("ANTHROPIC_MODEL") ?? "claude-opus-5-5",
+  },
+
+  cronSecret: env("CRON_SECRET"),
+  quoteWindowHours: Number(env("QUOTE_WINDOW_HOURS") ?? 40),
+  reminderAfterHours: Number(env("REMINDER_AFTER_HOURS") ?? 24),
+  maxSuppliersPerDeal: 10,
+
   hubspot: {
     token: env("HUBSPOT_PRIVATE_APP_TOKEN"),
     baseUrl: env("HUBSPOT_API_URL") ?? "https://api.hubapi.com",
@@ -49,4 +60,6 @@ export const integrationStatus = () => ({
   email: !!config.resend.apiKey,
   sms: !!(config.twilio.accountSid && config.twilio.authToken && config.twilio.from),
   hubspot: !!config.hubspot.token,
+  ai: !!config.anthropic.apiKey,
+  scheduler: !!config.cronSecret,
 });

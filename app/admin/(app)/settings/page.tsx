@@ -1,6 +1,6 @@
 import { config, integrationStatus } from "@/lib/config";
 import { db } from "@/lib/db";
-import SettingsActions from "@/components/SettingsActions";
+import SettingsActions, { DeadlineCheck } from "@/components/SettingsActions";
 
 export default async function SettingsPage() {
   const s = integrationStatus();
@@ -11,6 +11,8 @@ export default async function SettingsPage() {
     ["Email alerts (Resend)", s.email, `New-deal emails go to ${config.owner.email}.`],
     ["Text alerts (Twilio)", s.sms, `New-deal texts go to ${config.owner.phone}.`],
     ["HubSpot", s.hubspot, pipe ? `Pipeline "${config.hubspot.pipelineLabel}" is set up.` : "Contacts and deals sync once connected."],
+    ["AI (Claude)", s.ai, "Reads supplier proposal PDFs into standard numbers and writes the comparison summary."],
+    ["Hourly scheduler", s.scheduler, `Runs the ${config.quoteWindowHours}-hour clock: reminders after ${config.reminderAfterHours} hours, then closes the window. It also runs whenever you open this dashboard.`],
   ];
   return (
     <>
@@ -26,6 +28,7 @@ export default async function SettingsPage() {
         </table>
       </div>
       <SettingsActions hubspot={s.hubspot} alerts={s.email || s.sms} />
+      <DeadlineCheck />
     </>
   );
 }

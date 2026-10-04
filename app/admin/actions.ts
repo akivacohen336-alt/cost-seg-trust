@@ -9,15 +9,10 @@ import { db, logEvent } from "@/lib/db";
 import { setDealStage, syncDealToHubSpot } from "@/lib/deals";
 import { setupHubSpot } from "@/lib/hubspot";
 import { sendEmail, sendSms } from "@/lib/notify";
-import { SESSION_COOKIE, createSessionToken, sessionCookieOptions, verifySessionToken } from "@/lib/session";
+import { SESSION_COOKIE, createSessionToken, sessionCookieOptions } from "@/lib/session";
+import { requireAdmin } from "@/lib/admin-auth";
 import { isStageKey } from "@/lib/stages";
 
-async function requireAdmin() {
-  const jar = await cookies();
-  const s = await verifySessionToken(jar.get(SESSION_COOKIE)?.value);
-  if (!s) redirect("/admin/login");
-  return s;
-}
 
 export async function login(_: unknown, form: FormData): Promise<{ error?: string; email?: string }> {
   const email = String(form.get("email") ?? "").trim().toLowerCase();

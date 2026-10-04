@@ -11,6 +11,7 @@ async function record(dealId: string | null, channel: "email" | "sms", recipient
 
 export async function sendEmail(opts: {
   to: string; subject: string; html: string; text: string; dealId?: string | null; purpose: string;
+  attachments?: { filename: string; content: string }[]; replyTo?: string;
 }): Promise<Result> {
   if (!config.resend.apiKey) {
     return record(opts.dealId ?? null, "email", opts.to, opts.purpose, { status: "skipped", error: "Email service not configured" });
@@ -19,7 +20,11 @@ export async function sendEmail(opts: {
     const res = await fetch(config.resend.baseUrl + "/emails", {
       method: "POST",
       headers: { Authorization: `Bearer ${config.resend.apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ from: config.resend.from, to: [opts.to], subject: opts.subject, html: opts.html, text: opts.text }),
+      body: JSON.stringify({
+        from: config.resend.from, to: [opts.to], subject: opts.subject, html: opts.html, text: opts.text,
+        ...(opts.attachments ? { attachments: opts.attachments } : {}),
+        ...(opts.replyTo ? { reply_to: opts.replyTo } : {}),
+      }),
       signal: AbortSignal.timeout(10_000),
     });
     const body = await res.json().catch(() => ({}));
@@ -53,7 +58,7 @@ export async function sendSms(opts: { to: string; body: string; dealId?: string 
   }
 }
 
-const esc = (s: unknown) =>
+export const esc = (s: unknown) =>
   String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 export const usd = (n: number | string | null | undefined) =>
   n == null || n === "" ? "—" : "$" + Math.round(Number(n)).toLocaleString("en-US");
@@ -90,6 +95,26 @@ export async function notifyOwnerOfNewDeal(d: NewDealSummary) {
   const [email, sms] = await Promise.all([
     sendEmail({ to: config.owner.email, subject: headline, html, text, dealId: d.id, purpose: "owner_new_deal" }),
     sendSms({ to: config.owner.phone, body: `Cost Seg Trust: ${headline}. ${link}`, dealId: d.id, purpose: "owner_new_deal" }),
+  ]);
+  return { email, sms };
+}
+
+/** Branded email wrapper used for every message the app sends. */
+export function emailHtml(title: string, bodyHtml: string, button?: { href: string; label: string }) {
+  return `<div style="font-family:Arial,sans-serif;color:#1F2937;max-width:560px">
+    <div style="background:#0F2A44;color:#fff;padding:16px 20px;border-radius:10px 10px 0 0"><b style="font-size:18px">Cost Seg Trust</b><br><span style="opacity:.85">${esc(title)}</span></div>
+    <div style="border:1px solid #DDE3EA;border-top:0;padding:20px;border-radius:0 0 10px 10px;font-size:14px;line-height:1.55">${bodyHtml}
+    ${button ? `<p style="margin:18px 0 0"><a href="${esc(button.href)}" style="background:#10B981;color:#062b1f;text-decoration:none;padding:10px 16px;border-radius:8px;font-weight:bold;display:inline-block">${esc(button.label)}</a></p>` : ""}
+    </div></div>`;
+}
+
+/** Short alert to the owner by email and text. */
+export async function alertOwner(dealId: string | null, headline: string, detail: string, link?: string) {
+  const html = emailHtml("Update", `<p style="margin:0 0 10px"><b>${esc(headline)}</b></p><p style="margin:0;white-space:pre-line">${esc(detail)}</p>`,
+    link ? { href: link, label: "Open the deal" } : undefined);
+  const [email, sms] = await Promise.all([
+    sendEmail({ to: config.owner.email, subject: headline, html, text: `${headline}\n\n${detail}${link ? `\n\n${link}` : ""}`, dealId, purpose: "owner_update" }),
+    sendSms({ to: config.owner.phone, body: `Cost Seg Trust: ${headline}${link ? ` ${link}` : ""}`, dealId, purpose: "owner_update" }),
   ]);
   return { email, sms };
 }

@@ -18,6 +18,10 @@ export function createFakeServices() {
     emails: [] as any[],
     sms: [] as Record<string, string>[],
     calls: [] as string[],
+    ai: [] as any[], // requests the fake Anthropic API received
+    aiExtract: null as Record<string, unknown> | null, // what the fake AI "reads" from a proposal
+    aiSummary: "AI summary of the quotes.",
+    aiRefuse: false,
     failHubSpot: 0, // number of upcoming HubSpot calls to fail with 500
     hideNextContactLookup: false, // simulate search lag: next GET by email says 404 even if it exists
   };
@@ -45,6 +49,21 @@ export function createFakeServices() {
     if (/^\/2010-04-01\/Accounts\/[^/]+\/Messages\.json$/.test(p)) {
       state.sms.push(Object.fromEntries(new URLSearchParams(raw)));
       return send(201, { sid: "SM" + id() });
+    }
+
+    // ---- Anthropic Messages API ----
+    if (p === "/v1/messages" && req.method === "POST") {
+      if (req.headers["x-api-key"] !== "test-anthropic-key") return send(401, { type: "error", error: { type: "authentication_error", message: "bad key" } });
+      const b = json();
+      state.ai.push({ body: b, beta: req.headers["anthropic-beta"] });
+      const structured = !!b.output_config?.format;
+      const text = state.aiRefuse ? "" : structured ? JSON.stringify(state.aiExtract) : state.aiSummary;
+      return send(200, {
+        id: "msg_" + id(), type: "message", role: "assistant", model: b.model,
+        content: state.aiRefuse ? [] : [{ type: "text", text }],
+        stop_reason: state.aiRefuse ? "refusal" : "end_turn", stop_sequence: null,
+        usage: { input_tokens: 10, output_tokens: 10 },
+      });
     }
 
     // ---- HubSpot ----
@@ -149,7 +168,8 @@ export function createFakeServices() {
     close: () => new Promise<void>(r => server.close(() => r())),
     reset() {
       state.contacts = []; state.deals = []; state.associations = []; state.pipelines = []; state.properties = [];
-      state.emails = []; state.sms = []; state.calls = []; state.failHubSpot = 0; state.hideNextContactLookup = false;
+      state.emails = []; state.sms = []; state.calls = []; state.failHubSpot = 0;
+      state.ai = []; state.aiExtract = null; state.aiSummary = "AI summary of the quotes."; state.aiRefuse = false; state.hideNextContactLookup = false;
     },
   };
 }

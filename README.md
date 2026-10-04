@@ -5,8 +5,8 @@ Website and back office for the Cost Seg Trust quote marketplace. Built in stage
 | Stage | What | Status |
 |---|---|---|
 | 1 | Database, admin dashboard, client quote form, new-deal creation, owner alert (email + text), HubSpot contact and deal sync | Built and tested |
-| 2 | Supplier invites with personalized secure links (no supplier logins), 40-hour response tracking, supplier quote form | Next |
-| 3 | AI extraction, side-by-side comparison, approval, branded PDF, send to client | After stage 2 |
+| 2 | Supplier invites with personalized secure links (no supplier logins), 40-hour response tracking, reminders, supplier quote form | Built and tested |
+| 3 | AI extraction, side-by-side comparison, approval, branded PDF, send to client | Built and tested |
 
 ## Stack
 
@@ -72,8 +72,23 @@ DATABASE_URL=postgres://… npm test
 | `HUBSPOT_PRIVATE_APP_TOKEN` | for HubSpot | |
 | `HUBSPOT_PIPELINE_LABEL` | no | defaults to `Cost Seg Trust` |
 | `HUBSPOT_PORTAL_ID` | no | your HubSpot account ID, makes deal IDs clickable in the admin |
+| `ANTHROPIC_API_KEY` | for AI | reads proposal PDFs and writes the comparison summary; without it suppliers' typed numbers and a plain summary are used |
+| `CRON_SECRET` | for the 40-hour clock | random string; the scheduler sends it as `Authorization: Bearer <CRON_SECRET>` |
 
 When putting `ADMIN_PASSWORD_HASH` in a local `.env.local` file, write each `$` as `\$`. Vercel's settings screen takes the hash as-is.
+
+## Suppliers, AI and the one-pager (stages 2 and 3)
+
+1. On a deal, tick up to 10 active suppliers and press **Send quote request**. Each gets an email with a private link (`/q/<token>`). Only a hash of the link is stored. Suppliers see property type, city/state, price, dates, land value, renovation spend and whether there is a CPA, never the client's name, contact details or street address. The deal moves to Waiting on Quotes (HubSpot follows).
+2. The supplier fills in the form and/or attaches a proposal PDF (up to 4 MB), or declines. Each response alerts you by email and text. When everyone has responded and at least one quote is in, the deal moves to Quotes Received.
+3. The 40-hour clock (`/api/cron/deadlines`, hourly): one reminder with a fresh link after 24 hours (the old link keeps working), then at 40 hours open invites become "No response", the window closes and you are alerted. Late suppliers can still submit. Opening the admin also runs the check.
+4. If a PDF is attached, AI reads it into the standard fields. What the supplier typed always wins; AI fills blanks; differences over 1% are flagged on the deal page for you to check.
+5. **Build side-by-side comparison** creates the one-pager with a short AI summary (or a plain summary without AI). Click any value to correct it, hide suppliers or rows, or show "Provider A, B…" instead of names.
+6. **Generate PDF for approval** locks it and makes the branded PDF. **Approve & send to client** emails it with your message (replies go to your contact email). **Make changes** unlocks it; each regenerated PDF is kept as a new version.
+
+### Scheduler
+- Vercel Pro: `vercel.json` already runs the check hourly. Set `CRON_SECRET` in Vercel.
+- Vercel Hobby (daily cron only): use `.github/workflows/deadlines.yml`, with repository secrets `APP_URL` and `CRON_SECRET`.
 
 ## Project layout
 
