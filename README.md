@@ -46,6 +46,9 @@ DATABASE_URL=postgres://… npm test
 
 ## Setup checklist (one-time)
 
+Database without a terminal: paste `db/supabase-setup.sql` into Supabase > SQL Editor and press Run (safe to run again; adds the three test suppliers).
+
+
 1. **Database (Supabase, free tier):** create a project and copy the connection string (Project Settings → Database → Connection string → "Transaction pooler", port 6543). Then run:
    `DATABASE_URL="…" npm run db:migrate -- --seed`
 2. **Hosting (Vercel, free tier):** import this code from GitHub and add the environment variables below.
