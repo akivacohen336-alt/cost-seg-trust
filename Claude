@@ -1,0 +1,5 @@
+{
+  "permissions": {
+    "allow": ["mcp__Composio__COMPOSIO_MULTI_EXECUTE_TOOL"]
+  }
+}
