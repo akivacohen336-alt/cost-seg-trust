@@ -9,8 +9,10 @@ export const config = {
   brand: "Cost Seg Trust",
   contactEmail: env("CONTACT_EMAIL") ?? "akivacohen336@gmail.com",
   contactPhone: env("CONTACT_PHONE") ?? "(305) 219-1907",
-  appUrl: (env("APP_URL") ?? "http://localhost:3000").replace(/\/$/, ""),
-  databaseUrl: env("DATABASE_URL"),
+  // On Vercel the site address is known automatically.
+  appUrl: (env("APP_URL") ?? (env("VERCEL_PROJECT_PRODUCTION_URL") ? `https://${env("VERCEL_PROJECT_PRODUCTION_URL")}` : "http://localhost:3000")).replace(/\/$/, ""),
+  // POSTGRES_URL is what Vercel's Supabase integration sets.
+  databaseUrl: env("DATABASE_URL") ?? env("POSTGRES_URL"),
 
   admin: {
     email: env("ADMIN_EMAIL") ?? "akivacohen336@gmail.com",

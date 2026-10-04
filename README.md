@@ -46,7 +46,7 @@ DATABASE_URL=postgres://… npm test
 
 ## Setup checklist (one-time)
 
-Database without a terminal: paste `db/supabase-setup.sql` into Supabase > SQL Editor and press Run (safe to run again; adds the three test suppliers).
+The database sets itself up: when the app starts it creates or upgrades every table and adds the three test suppliers (see `lib/migrate.ts`). `db/supabase-setup.sql` is only a manual fallback.
 
 
 1. **Database (Supabase, free tier):** create a project and copy the connection string (Project Settings → Database → Connection string → "Transaction pooler", port 6543). Then run:
@@ -62,8 +62,8 @@ Database without a terminal: paste `db/supabase-setup.sql` into Supabase > SQL E
 
 | Name | Required | Example / note |
 |---|---|---|
-| `DATABASE_URL` | yes | Supabase transaction pooler connection string |
-| `APP_URL` | yes | `https://costsegtrust.com` (used in alert links) |
+| `DATABASE_URL` | yes | Supabase transaction pooler connection string (`POSTGRES_URL` from Vercel's Supabase integration also works) |
+| `APP_URL` | no on Vercel | `https://costsegtrust.com` (used in links); defaults to the Vercel production address |
 | `ADMIN_EMAIL` | yes | `akivacohen336@gmail.com` |
 | `ADMIN_PASSWORD_HASH` | yes | from `npm run hash-password` |
 | `SESSION_SECRET` | yes | random, 32+ characters |
