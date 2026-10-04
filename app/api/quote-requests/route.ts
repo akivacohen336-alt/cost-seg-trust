@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { afterDealCreated, createDealFromRequest } from "@/lib/deals";
+import { ensureSchema } from "@/lib/migrate";
 import { quoteRequestSchema } from "@/lib/validation";
 
 export const runtime = "nodejs";
@@ -23,6 +24,7 @@ export async function POST(req: Request) {
   }
 
   try {
+    await ensureSchema();
     const result = await createDealFromRequest(parsed.data);
     // The owner alert and HubSpot sync run before we answer, so serverless
     // hosts don't stop them midway. Failures are recorded on the deal and
