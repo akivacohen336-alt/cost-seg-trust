@@ -1,0 +1,91 @@
+# Cost Seg Trust
+
+Website and back office for the Cost Seg Trust quote marketplace. Built in stages. **This is stage 1.**
+
+| Stage | What | Status |
+|---|---|---|
+| 1 | Database, admin dashboard, client quote form, new-deal creation, owner alert (email + text), HubSpot contact and deal sync | Built and tested |
+| 2 | Supplier invites with personalized secure links (no supplier logins), 40-hour response tracking, supplier quote form | Next |
+| 3 | AI extraction, side-by-side comparison, approval, branded PDF, send to client | After stage 2 |
+
+## Stack
+
+- **Next.js 15** (React 19, TypeScript). Hosts the website, the admin and the API.
+- **Postgres** (Supabase recommended, any Postgres 14+ works). The app talks to it from the server only.
+- **Resend** for email, **Twilio** for text messages, **HubSpot** for the CRM. Each is optional: when its keys are missing the app records "skipped" and carries on.
+
+## What happens when a client submits the form
+
+1. The form is validated in the browser and again on the server (bad entries come back with a message next to the field). A hidden field quietly drops bot submissions.
+2. The client is saved (one record per email address) and a new deal is created at stage **New Request** with the next CST number (CST-1001, CST-1002 …). Each form load carries a one-time key, so a double-click or retry never creates a second deal.
+3. You get an email at akivacohen336@gmail.com and a text at (305) 219-1907 with the details and a link to the deal.
+4. The deal is synced to HubSpot (see below).
+5. The client sees a thank-you message with their reference number.
+
+Every alert and every sync is logged on the deal page. If HubSpot or an alert fails, the deal is still saved, the error is shown on the deal page, and "Retry HubSpot sync" fixes it later.
+
+## HubSpot: how duplicates are prevented
+
+- **Contacts** are matched by email. The app looks the email up in HubSpot first and updates that contact if it exists (name and phone only; other HubSpot fields are left alone). It creates a contact only when HubSpot has none, and if HubSpot answers "contact already exists" it uses that contact.
+- **Deals** carry the app's own request ID in a HubSpot field called **Cost Seg Trust request ID**, created as a *unique* field. HubSpot itself refuses a second deal with the same value, so no retry, double submission or crash can produce two deals for one request. Once synced, the HubSpot deal ID is stored and later syncs update that exact deal.
+- Each deal is associated with its contact. Re-running the association is harmless.
+- **Stages** move with the deal: changing the stage in the admin moves the HubSpot deal to the same stage.
+- **Pipeline:** "Cost Seg Trust" with the stages New Request → Waiting on Quotes → Quotes Received → Comparison Ready → Awaiting Approval → Sent to Client → Closed. The admin Settings page has a "Set up HubSpot pipeline" button that creates the pipeline and the unique field. It's safe to run again: it never creates a second pipeline, and it adds any missing stages to an existing one.
+
+## Test suppliers
+
+Three test suppliers are seeded (Test Supplier A, B, C). Their emails are `akivacohen336+supplier-a@gmail.com` and so on, so anything "sent to a supplier" during testing lands in your own inbox. They're marked **Test** on the Suppliers page. Real suppliers are added later on the same page.
+
+## Tests
+
+```
+DATABASE_URL=postgres://… npm test
+```
+
+19 automated tests run against a real Postgres database with stand-ins for HubSpot, Resend and Twilio, so no real account is touched. They cover the full submission, alerts, HubSpot contact and deal creation, duplicate submissions, returning clients, contacts that already exist in HubSpot, the "already exists" race, lost HubSpot IDs, HubSpot outages and retries, stage moves, pipeline setup, validation, bot filtering, and that every table is locked from public access.
+
+## Setup checklist (one-time)
+
+1. **Database (Supabase, free tier):** create a project and copy the connection string (Project Settings → Database → Connection string → "Transaction pooler", port 6543). Then run:
+   `DATABASE_URL="…" npm run db:migrate -- --seed`
+2. **Hosting (Vercel, free tier):** import this code from GitHub and add the environment variables below.
+3. **Admin password:** run `npm run hash-password -- "your password"` and paste the output as `ADMIN_PASSWORD_HASH`. Set `SESSION_SECRET` to any random string of 32+ characters.
+4. **Email (Resend):** create an account and an API key. To send from your own domain, verify the domain in Resend and set `EMAIL_FROM` (for example `Cost Seg Trust <alerts@yourdomain.com>`).
+5. **Text messages (Twilio):** create an account, buy a number and copy the Account SID and Auth Token. US texting needs A2P 10DLC registration in Twilio, which takes a few days.
+6. **HubSpot:** create a private app (HubSpot Settings → Integrations → Private Apps; newer accounts call these "Legacy apps") with these scopes: `crm.objects.contacts.read`, `crm.objects.contacts.write`, `crm.objects.deals.read`, `crm.objects.deals.write`, `crm.schemas.deals.read`, `crm.schemas.deals.write`. Copy its access token into `HUBSPOT_PRIVATE_APP_TOKEN`, then press **Set up HubSpot pipeline** on the admin Settings page.
+   - HubSpot's free plan allows only one deal pipeline. On the free plan, set `HUBSPOT_PIPELINE_LABEL` to the name of your existing pipeline (usually "Sales Pipeline") and the app will add the seven stages to it.
+
+### Environment variables
+
+| Name | Required | Example / note |
+|---|---|---|
+| `DATABASE_URL` | yes | Supabase transaction pooler connection string |
+| `APP_URL` | yes | `https://costsegtrust.com` (used in alert links) |
+| `ADMIN_EMAIL` | yes | `akivacohen336@gmail.com` |
+| `ADMIN_PASSWORD_HASH` | yes | from `npm run hash-password` |
+| `SESSION_SECRET` | yes | random, 32+ characters |
+| `OWNER_NOTIFY_EMAIL` | no | defaults to `ADMIN_EMAIL` |
+| `OWNER_NOTIFY_PHONE` | no | defaults to `+13052191907` |
+| `CONTACT_EMAIL`, `CONTACT_PHONE` | no | shown in the website footer |
+| `RESEND_API_KEY`, `EMAIL_FROM` | for email | |
+| `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER` | for texts | `TWILIO_FROM_NUMBER` like `+15551234567` |
+| `HUBSPOT_PRIVATE_APP_TOKEN` | for HubSpot | |
+| `HUBSPOT_PIPELINE_LABEL` | no | defaults to `Cost Seg Trust` |
+| `HUBSPOT_PORTAL_ID` | no | your HubSpot account ID, makes deal IDs clickable in the admin |
+
+When putting `ADMIN_PASSWORD_HASH` in a local `.env.local` file, write each `$` as `\$`. Vercel's settings screen takes the hash as-is.
+
+## Project layout
+
+```
+app/page.tsx                    public page with the quote form
+app/api/quote-requests          form endpoint
+app/admin/login                 admin sign-in
+app/admin/(app)/…               deals list, deal page, suppliers, settings
+app/admin/export                CSV export
+lib/deals.ts                    deal creation, follow-ups, stage changes
+lib/hubspot.ts                  HubSpot sync and duplicate protection
+lib/notify.ts                   owner email and text alerts
+db/migrations, db/seed          database structure and test suppliers
+tests/                          automated tests and fake services
+```
