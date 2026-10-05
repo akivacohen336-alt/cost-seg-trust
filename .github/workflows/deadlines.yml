@@ -1,6 +1,7 @@
 # Free hourly scheduler for the 40-hour supplier clock (use this if your
 # Vercel plan only allows daily cron jobs). Needs two repository secrets:
-# APP_URL (e.g. https://costsegtrust.com) and CRON_SECRET.
+# APP_URL (e.g. https://cost-seg-trust.vercel.app) and CRON_SECRET (the same
+# value as CRON_SECRET in Vercel). Until both are set it skips quietly.
 name: Supplier deadlines
 on:
   schedule:
@@ -11,5 +12,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Run the deadline check
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
-          curl -fsS -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" "${{ secrets.APP_URL }}/api/cron/deadlines"
+          if [ -z "$APP_URL" ] || [ -z "$CRON_SECRET" ]; then
+            echo "::notice::Skipped: add APP_URL and CRON_SECRET repository secrets to turn on the hourly check."
+            exit 0
+          fi
+          curl -fsS --retry 2 -H "Authorization: Bearer $CRON_SECRET" "${APP_URL%/}/api/cron/deadlines"
