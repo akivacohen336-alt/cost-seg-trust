@@ -3,7 +3,7 @@ import FaqList from "@/components/site/FaqList";
 import LegacyQuoteAnchor from "@/components/site/LegacyQuoteAnchor";
 import Placeholder from "@/components/site/Placeholder";
 import SampleComparison from "@/components/site/SampleComparison";
-import { FAQ_PREVIEW, QUOTE_PATH } from "@/lib/site";
+import { FAQ_PREVIEW, PHOTOS, QUOTE_PATH, photoStyle } from "@/lib/site";
 
 const DIFFERENCES = [
   ["Study pricing", "Fees for the same property can differ from one provider to the next."],
@@ -33,7 +33,7 @@ export default function Home() {
     <>
       <LegacyQuoteAnchor />
 
-      <section className="s-hero">
+      <section className="s-hero s-photo" style={photoStyle(PHOTOS.office)}>
         <div className="s-wrap s-hero-grid">
           <div className="s-hero-copy">
             <p className="s-eyebrow">Cost segregation comparison</p>
@@ -147,7 +147,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="s-sec s-sec-dark">
+      <section className="s-sec s-sec-dark s-photo" style={photoStyle(PHOTOS.apartmentsNight)}>
         <div className="s-wrap">
           <div className="s-sec-head">
             <p className="s-eyebrow">Our commitments</p>

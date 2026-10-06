@@ -361,3 +361,65 @@ body.menu-open { overflow: hidden; }
 .s-legal-body ul { padding-left: 20px; margin: 0 0 1em; display: grid; gap: 6px; }
 
 @media (prefers-reduced-motion: reduce) { .site * { transition: none !important; } }
+
+/* ---------------------------------------------------------------
+   Presentation style: each section reads like a full-width slide,
+   with a slide number, larger headlines and a few photo slides.
+   --------------------------------------------------------------- */
+.site main { counter-reset: slide; }
+.s-sec, .s-cta { position: relative; counter-increment: slide; }
+.s-sec::before, .s-cta::before {
+  content: counter(slide, decimal-leading-zero); position: absolute; z-index: 1;
+  top: 32px; right: max(24px, calc((100% - 1160px) / 2 + 24px));
+  font: 500 .8rem/1 var(--s-sans); letter-spacing: .18em; color: var(--s-muted);
+  padding-left: 40px; background: linear-gradient(currentColor, currentColor) left center / 28px 1px no-repeat;
+}
+.s-sec-dark::before, .s-cta::before, .s-photo::before { color: rgba(255, 255, 255, .62); }
+.s-sec h2 { font-size: clamp(2rem, 3.9vw, 3.15rem); font-weight: 600; letter-spacing: -.02em; line-height: 1.08; }
+.s-sec-head { max-width: 780px; }
+.s-sec-head p:not(.s-eyebrow) { font-size: 1.14rem; }
+.s-hero h1 { font-size: clamp(2.6rem, 6vw, 4.7rem); font-weight: 600; }
+.s-phero h1 { font-weight: 600; }
+.s-cta h2 { font-weight: 600; font-size: clamp(2rem, 4vw, 3.2rem); }
+
+/* Full-height slides on larger screens; phones keep natural height. */
+@media (min-width: 900px) and (min-height: 640px) {
+  .s-hero, .s-sec, .s-cta { min-height: calc(100vh - 72px); display: flex; align-items: center; }
+  .s-hero > .s-wrap, .s-sec > .s-wrap, .s-cta > .s-wrap { width: 100%; }
+  .s-sec { padding-block: 112px; }
+  .s-phero.s-photo { min-height: 62vh; display: flex; align-items: flex-end; }
+  .s-phero.s-photo > .s-wrap { width: 100%; }
+}
+@media (max-width: 640px) { .s-sec::before, .s-cta::before { top: 20px; } }
+
+/* Photo slides: the photo sits under a navy wash so text stays readable. */
+.s-photo { position: relative; isolation: isolate; background: var(--s-navy) var(--photo) center / cover no-repeat; border-bottom: 0; }
+.s-photo::after { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background: linear-gradient(100deg, rgba(10, 26, 42, .94) 0%, rgba(10, 26, 42, .82) 45%, rgba(10, 26, 42, .55) 100%); }
+.s-photo, .s-photo p { color: rgba(255, 255, 255, .86); }
+.s-photo h1, .s-photo h2, .s-photo h3 { color: #fff; }
+.s-photo .s-eyebrow { color: var(--s-brass-light); }
+.site .s-photo a:not(.s-btn) { color: #fff; }
+
+.s-hero.s-photo { padding-block: 104px 112px; }
+.s-hero.s-photo h1 em { color: var(--s-brass-light); }
+.s-hero.s-photo .s-hero-lede { color: rgba(255, 255, 255, .86); }
+.s-hero.s-photo .s-assure { color: rgba(255, 255, 255, .78); }
+.s-hero.s-photo .s-assure li::before { background: var(--s-brass-light); }
+.site .s-hero.s-photo .s-btn-primary { background: var(--s-paper); border-color: var(--s-paper); color: var(--s-navy); }
+.site .s-hero.s-photo .s-btn-primary:hover { background: #fff; border-color: #fff; color: var(--s-navy); }
+.site .s-hero.s-photo .s-btn-ghost { color: #fff; border-color: rgba(255, 255, 255, .55); }
+.site .s-hero.s-photo .s-btn-ghost:hover { border-color: #fff; color: #fff; }
+.s-hero.s-photo .s-hero-panel { box-shadow: 0 24px 60px rgba(0, 0, 0, .35); }
+.s-hero.s-photo .s-panel-label, .s-hero.s-photo .s-panel-foot { color: var(--s-muted); }
+.s-hero.s-photo .s-panel-list li { color: var(--s-ink); }
+
+.s-phero.s-photo { padding-block: 132px 72px; }
+.s-phero.s-photo .s-phero-lede { color: rgba(255, 255, 255, .86); }
+.s-cta.s-photo::after { background: linear-gradient(90deg, rgba(10, 26, 42, .95) 0%, rgba(10, 26, 42, .86) 55%, rgba(10, 26, 42, .7) 100%); }
+.s-sec-dark.s-photo::after { background: rgba(10, 26, 42, .9); }
+@media (max-width: 640px) {
+  .s-hero.s-photo { padding-block: 64px 72px; }
+  .s-phero.s-photo { padding-block: 72px 48px; }
+  .s-photo::after { background: rgba(10, 26, 42, .86); }
+}

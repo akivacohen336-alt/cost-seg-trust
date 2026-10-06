@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import CtaBand from "@/components/site/CtaBand";
 import PageHero from "@/components/site/PageHero";
+import { PHOTOS } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Why Compare Providers",
@@ -53,7 +54,7 @@ const FACTORS = [
 export default function WhyCompare() {
   return (
     <>
-      <PageHero eyebrow="Why compare" title="The same property can produce very different quotes.">
+      <PageHero eyebrow="Why compare" title="The same property can produce very different quotes." photo={PHOTOS.skyline}>
         <p>
           Cost segregation providers don't all price, estimate or deliver studies the same way. Comparing several options
           side by side helps you understand what you're paying for and ask better questions before you commit.
