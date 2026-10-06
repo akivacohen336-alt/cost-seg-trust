@@ -17,6 +17,14 @@ export const MIGRATIONS: { name: string; sql: string }[] = [
     "sql": "-- Client folders: private notes per client and documents you upload to a\n-- client's folder (kept in the database, max 4 MB each).\nalter table clients add column if not exists notes text;\n\ncreate table if not exists client_files (\n  id           uuid primary key default gen_random_uuid(),\n  client_id    uuid not null references clients(id) on delete cascade,\n  deal_id      uuid references deals(id) on delete set null,\n  filename     text not null,\n  content_type text not null,\n  size_bytes   integer not null,\n  data         bytea not null,\n  created_at   timestamptz not null default now()\n);\ncreate index if not exists client_files_client_idx on client_files (client_id, created_at desc);\nalter table client_files enable row level security;\n\n-- Faster client search.\ncreate index if not exists deals_client_idx on deals (client_id, created_at desc);\n"
   },
   {
+    "name": "005_test_deals.sql",
+    "sql": "-- Test deals can only ever go to test suppliers. Every deal that exists when\n-- this runs was made while testing, before real suppliers were added.\nalter table deals add column if not exists is_test boolean not null default false;\nupdate deals set is_test = true;\n"
+  },
+  {
+    "name": "006_real_suppliers.sql",
+    "sql": "-- Akiva's real suppliers (2026-10-06). Adding them sends nothing: a supplier\n-- is only emailed when Akiva presses Send on a real (non-test) deal.\ninsert into suppliers (company_name, contact_name, email, is_test) values\n  ('CRE-US', 'Dana Udumulla', 'dana@cre-us.org', false),\n  ('Specialty Tax Advisors', 'Marco Hermez', 'marco@specialtytaxadvisors.com', false),\n  ('SegPro Solutions', 'Mark Santiago', 'mark@segprosolutions.com', false),\n  ('RE Cost Seg', 'Anne Harrison', 'anne@recostseg.com', false),\n  ('CSSI Services', 'Daniel Boyd', 'daniel.boyd@cssiservices.com', false),\n  ('Engineered Tax Services', 'Michael D''Onofrio', 'mdonofrio@engineeredtaxservices.com', false)\non conflict (email) do nothing;\n"
+  },
+  {
     "name": "seed_test_suppliers.sql",
     "sql": "-- Test suppliers for safe end-to-end testing. Their emails use \"+\" addressing,\n-- so anything \"sent to a supplier\" lands in the owner's own Gmail inbox.\n-- Real suppliers are added later from the admin Suppliers page.\ninsert into suppliers (company_name, contact_name, email, description, is_test) values\n  ('Test Supplier A', 'Test Contact A', 'akivacohen336+supplier-a@gmail.com', 'Test only: full engineering studies', true),\n  ('Test Supplier B', 'Test Contact B', 'akivacohen336+supplier-b@gmail.com', 'Test only: desktop studies', true),\n  ('Test Supplier C', 'Test Contact C', 'akivacohen336+supplier-c@gmail.com', 'Test only: residential and STR', true)\non conflict (email) do nothing;\n"
   }
