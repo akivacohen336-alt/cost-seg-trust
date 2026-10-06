@@ -1,11 +1,11 @@
-import { QUOTE_PATH } from "@/lib/site";
+import { PHOTOS, QUOTE_PATH, photoStyle } from "@/lib/site";
 
 export default function CtaBand({
   title = "See your options before you choose a provider.",
   text = "Submit your property once. We'll request quotes from multiple cost segregation providers and send you a side-by-side comparison. Free, with no obligation.",
 }: { title?: string; text?: string }) {
   return (
-    <section className="s-cta">
+    <section className="s-cta s-photo" style={photoStyle(PHOTOS.downtown)}>
       <div className="s-wrap s-cta-inner">
         <div>
           <h2>{title}</h2>

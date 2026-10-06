@@ -131,3 +131,24 @@ export const FAQ_PREVIEW = [
   "Do I have to choose a provider?",
   "Are tax savings guaranteed?",
 ].map(q => FAQ_GROUPS.flatMap(g => g.items).find(i => i.q === q)!);
+
+// Background photos. All are CC0 (public domain dedication) from Wikimedia
+// Commons, so no attribution or license fee is required. Swap any URL here
+// for a self-hosted or licensed photo to change it everywhere it is used.
+const commons = (path: string, w = 1920) => `https://upload.wikimedia.org/wikipedia/commons/thumb/${path}/${w}px-${path.split("/").pop()}`;
+
+export const PHOTOS = {
+  // "Modern office building, Theresienhöhe, München", Robert von Oliva
+  office: commons("4/40/Modern_office_building%2C_Theresienh%C3%B6he%2C_M%C3%BCnchen.jpg"),
+  // "Azabu Gardens East, part of a luxury apartments complex", Syced
+  apartments: commons("a/a6/Azabu_Gardens_East%2C_part_of_a_luxury_apartments_complex.jpg", 1280),
+  // "Apartment Complex at Night"
+  apartmentsNight: commons("9/99/Apartment_Complex_at_Night.jpg", 1280),
+  // "Downtown Tulsa Skyline", Jordan Michael Winn
+  skyline: commons("c/c2/Downtown_Tulsa_Skyline.jpg", 1280),
+  // "Downtown denver", Chachpond
+  downtown: commons("5/53/Downtown_denver.jpg", 1280),
+} as const;
+
+/** Inline style that hands a photo to the .s-photo CSS class. */
+export const photoStyle = (url: string) => ({ "--photo": `url("${url}")` }) as React.CSSProperties;

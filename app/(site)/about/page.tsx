@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import CtaBand from "@/components/site/CtaBand";
 import PageHero from "@/components/site/PageHero";
 import Placeholder from "@/components/site/Placeholder";
+import { PHOTOS } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "About",
@@ -18,7 +19,7 @@ const PRINCIPLES = [
 export default function About() {
   return (
     <>
-      <PageHero eyebrow="About Cost Seg Trust" title="Making cost segregation easier to understand and easier to compare.">
+      <PageHero eyebrow="About Cost Seg Trust" title="Making cost segregation easier to understand and easier to compare." photo={PHOTOS.apartmentsNight}>
         <p>
           Cost Seg Trust was created for property owners who want to see more than one option before choosing a cost
           segregation provider.

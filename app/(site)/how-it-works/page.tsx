@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import CtaBand from "@/components/site/CtaBand";
 import PageHero from "@/components/site/PageHero";
-import { QUOTE_PATH } from "@/lib/site";
+import { PHOTOS, QUOTE_PATH } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "How It Works",
@@ -43,7 +43,7 @@ const NEEDS = [
 export default function HowItWorks() {
   return (
     <>
-      <PageHero eyebrow="How it works" title="One submission. Multiple quotes. Your decision.">
+      <PageHero eyebrow="How it works" title="One submission. Multiple quotes. Your decision." photo={PHOTOS.apartments}>
         <p>
           You provide your property information once. We request quotes from multiple cost segregation providers and
           organize them so you can compare them clearly, then you choose the provider that makes the most sense for you.
