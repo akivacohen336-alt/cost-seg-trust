@@ -30,8 +30,7 @@ export default function SampleComparison() {
         </table>
       </div>
       <figcaption>
-        Hypothetical example for illustration only. These are not actual quotes, providers or results. Real comparisons
-        depend on your property and on what each provider submits, and all estimates may vary.
+        Hypothetical figures for illustration only, not actual quotes or results. Estimates may vary.
       </figcaption>
     </figure>
   );

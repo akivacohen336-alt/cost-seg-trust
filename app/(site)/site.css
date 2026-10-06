@@ -423,3 +423,16 @@ body.menu-open { overflow: hidden; }
   .s-phero.s-photo { padding-block: 72px 48px; }
   .s-photo::after { background: rgba(10, 26, 42, .86); }
 }
+
+/* Short homepage: centered opening slide and word-light slides. */
+.s-hero-min { text-align: center; }
+.s-hero-min h1 { max-width: 960px; margin-inline: auto; }
+.s-hero-min .s-hero-lede { max-width: 640px; margin-inline: auto; font-size: clamp(1.1rem, 1.8vw, 1.35rem); }
+.s-hero-min .s-hero-actions { justify-content: center; }
+.s-slide-center { text-align: center; }
+.s-slide-center h2 { max-width: 900px; margin: 0 auto 28px; font-size: clamp(2.1rem, 4.6vw, 3.8rem); }
+.s-slide-center .s-eyebrow::before { display: none; }
+.s-chips { list-style: none; margin: 0 0 36px; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; border-top: 1px solid var(--s-line); border-left: 1px solid var(--s-line); }
+.s-chips li { padding: 30px 28px; border-right: 1px solid var(--s-line); border-bottom: 1px solid var(--s-line); font-family: var(--s-serif); font-size: clamp(1.2rem, 2vw, 1.55rem); color: var(--s-ink); }
+@media (max-width: 760px) { .s-chips { grid-template-columns: repeat(2, minmax(0, 1fr)); } .s-chips li { padding: 20px 16px; } }
+@media (max-width: 420px) { .s-chips { grid-template-columns: 1fr; } }

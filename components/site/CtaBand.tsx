@@ -9,7 +9,7 @@ export default function CtaBand({
       <div className="s-wrap s-cta-inner">
         <div>
           <h2>{title}</h2>
-          <p>{text}</p>
+          {text ? <p>{text}</p> : null}
         </div>
         <div className="s-cta-actions">
           <a className="s-btn s-btn-light s-btn-lg" href={QUOTE_PATH}>Compare Cost Segregation Quotes</a>
