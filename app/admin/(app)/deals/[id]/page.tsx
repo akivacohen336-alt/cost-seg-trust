@@ -55,7 +55,7 @@ export default async function DealPage({ params }: { params: Promise<{ id: strin
         from supplier_invites i join suppliers s on s.id = i.supplier_id left join supplier_quotes q on q.invite_id = i.id
         where i.deal_id = ${id} order by i.invited_at, s.company_name`,
     sql`select id, company_name, email::text as email, is_test from suppliers
-        where active and id not in (select supplier_id from supplier_invites where deal_id = ${id}) order by is_test desc, company_name`,
+        where active and (is_test or not ${d.is_test}::boolean) and id not in (select supplier_id from supplier_invites where deal_id = ${id}) order by is_test desc, company_name`,
     sql`select status from comparisons where deal_id = ${id}`,
   ]);
   const quoted = invites.filter(i => i.status === "submitted").length;
@@ -68,7 +68,7 @@ export default async function DealPage({ params }: { params: Promise<{ id: strin
       <div className="card" style={{ display: "grid", gap: 14 }}>
         <div className="page-title">
           <div>
-            <p className="small muted" style={{ margin: 0 }}>CST-{d.number} · received {dateTime(d.created_at)}</p>
+            <p className="small muted" style={{ margin: 0 }}>CST-{d.number} · received {dateTime(d.created_at)}{d.is_test ? <> · <span className="pill warn">Test deal: test suppliers only</span></> : null}</p>
             <h1>{d.property_type} · {d.property_address}</h1>
           </div>
           <StagePill stage={d.stage} />

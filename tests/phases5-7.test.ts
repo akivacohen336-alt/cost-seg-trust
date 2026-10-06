@@ -422,3 +422,27 @@ describe("phase 7: comparison, approval, PDF, client", () => {
     expect(await comparison.buildComparison(dealId)).toEqual({ ok: false, error: "No supplier quotes yet." });
   });
 });
+
+describe("real suppliers and test deals", () => {
+  it("never sends a test deal, its reminder or a resent link to a real supplier", async () => {
+    const [real] = await sql`insert into suppliers (company_name, email, is_test) values ('Real Co', 'real@example.com', false) returning id`;
+    const dealId = await newDeal();
+    await sql`update deals set is_test = true where id = ${dealId}`;
+    fake.state.emails = [];
+    const r = await suppliers.sendDealToSuppliers(dealId, [real.id, S.a]);
+    expect(r.error).toMatch(/test deal/);
+    expect(fake.state.emails).toHaveLength(0);
+
+    // Even an invite that somehow exists gets no reminder or resent link.
+    const [inv] = await sql`insert into supplier_invites (deal_id, supplier_id, token_hash, invited_at, due_at)
+      values (${dealId}, ${real.id}, 'x', now() - interval '30 hours', now() + interval '10 hours') returning id`;
+    await suppliers.runDeadlines();
+    expect((await suppliers.resendInvite(inv.id)).ok).toBe(false);
+    expect(fake.state.emails.filter((e: any) => e.to.includes("real@example.com"))).toHaveLength(0);
+
+    // Test suppliers still work on a test deal, and real deals can reach real suppliers.
+    expect((await suppliers.sendDealToSuppliers(dealId, [S.a])).invited).toBe(1);
+    const realDeal = await newDeal();
+    expect((await suppliers.sendDealToSuppliers(realDeal, [real.id])).invited).toBe(1);
+  });
+});

@@ -60,6 +60,10 @@ export async function sendDealToSuppliers(dealId: string, supplierIds: string[])
   if (unique.length > room) return { invited: 0, skipped: 0, error: `Up to ${config.maxSuppliersPerDeal} suppliers per deal. You can add ${Math.max(room, 0)} more.` };
 
   const suppliers = await sql`select * from suppliers where id = any(${unique}::uuid[]) and active`;
+  // Real suppliers only ever hear about real website requests.
+  if (d.is_test && suppliers.some((s: any) => !s.is_test)) {
+    return { invited: 0, skipped: 0, error: "This is a test deal, so it can only go to test suppliers." };
+  }
   let invited = 0;
   for (const s of suppliers) {
     const token = newToken();
@@ -83,6 +87,7 @@ export async function resendInvite(inviteId: string) {
   const [inv] = await sql`select i.*, s.company_name, s.contact_name, s.email::text as email
                           from supplier_invites i join suppliers s on s.id = i.supplier_id where i.id = ${inviteId}`;
   if (!inv || inv.status === "submitted" || inv.status === "declined") return { ok: false };
+  if (!(await canReach(inv.deal_id, inv.supplier_id))) return { ok: false };
   const token = newToken();
   await sql`update supplier_invites set previous_token_hash = token_hash, token_hash = ${hashToken(token)}, link_sent_count = link_sent_count + 1 where id = ${inviteId}`;
   const d = await loadDeal(inv.deal_id);
@@ -174,6 +179,13 @@ async function afterSupplierResponse(dealId: string, what: string) {
  * Runs the 40-hour clock. Safe to call as often as you like (an hourly
  * scheduler calls it): sends each reminder once, closes each window once.
  */
+/** False when a test deal would reach a real supplier. */
+async function canReach(dealId: string, supplierId: string) {
+  const [r] = await db()`select not (d.is_test and not s.is_test) as ok from deals d, suppliers s
+                         where d.id = ${dealId} and s.id = ${supplierId}`;
+  return !!r?.ok;
+}
+
 export async function runDeadlines(now = new Date()) {
   const sql = db();
   const result = { reminders: 0, expired: 0, closedDeals: 0 };
@@ -184,6 +196,7 @@ export async function runDeadlines(now = new Date()) {
       and invited_at <= ${now}::timestamptz - make_interval(hours => ${config.reminderAfterHours})
     returning i.*`;
   for (const inv of due) {
+    if (!(await canReach(inv.deal_id, inv.supplier_id))) continue;
     const [s] = await sql`select * from suppliers where id = ${inv.supplier_id}`;
     const token = newToken();
     await sql`update supplier_invites set previous_token_hash = token_hash, token_hash = ${hashToken(token)}, link_sent_count = link_sent_count + 1 where id = ${inv.id}`;
