@@ -175,9 +175,9 @@ describe("phase 5: supplier responses", () => {
     expect(q.ai_status).toBe("skipped"); // no PDF, nothing for AI to read
     expect(deferred).toHaveLength(0);
 
-    const owner = fake.state.emails.find(e => e.to[0] === "akivacohen336@gmail.com");
+    const owner = fake.state.emails.find(e => e.to.includes("aron.turen@gmail.com"));
     expect(owner.subject).toBe("CST-1001: Test Supplier A sent a quote ($4,500) (1 of 2 responded)");
-    expect(fake.state.sms[0].To).toBe("+13052191907");
+    expect(fake.state.sms).toHaveLength(0);
 
     const again = await submitForm(t.a, { fee: "1" });
     expect(again.status).toBe(409);
@@ -224,7 +224,7 @@ describe("phase 5: the 40-hour clock", () => {
     expect(await suppliers.runDeadlines()).toEqual({ reminders: 0, expired: 1, closedDeals: 1 });
     expect(await suppliers.runDeadlines()).toEqual({ reminders: 0, expired: 0, closedDeals: 0 });
     expect(await stageOf(dealId)).toBe("quotes_received");
-    expect(fake.state.emails.find(e => e.to[0] === "akivacohen336@gmail.com").subject).toBe("CST-1001: 40-hour window closed, 1 of 2 quotes in");
+    expect(fake.state.emails.find(e => e.to.includes("aron.turen@gmail.com")).subject).toBe("CST-1001: 40-hour window closed, 1 of 2 quotes in");
 
     // A late supplier can still answer an expired invite.
     expect((await submitForm(first.b, { fee: "6100" })).status).toBe(200);

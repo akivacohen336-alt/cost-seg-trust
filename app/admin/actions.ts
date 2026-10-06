@@ -8,7 +8,7 @@ import { config } from "@/lib/config";
 import { db, logEvent } from "@/lib/db";
 import { setDealStage, syncDealToHubSpot } from "@/lib/deals";
 import { setupHubSpot } from "@/lib/hubspot";
-import { sendEmail, sendSms } from "@/lib/notify";
+import { sendEmail } from "@/lib/notify";
 import { SESSION_COOKIE, createSessionToken, sessionCookieOptions } from "@/lib/session";
 import { requireAdmin } from "@/lib/admin-auth";
 import { isStageKey } from "@/lib/stages";
@@ -92,13 +92,9 @@ export async function runHubSpotSetup(): Promise<{ ok: boolean; message: string 
 
 export async function sendTestAlert(): Promise<{ ok: boolean; message: string }> {
   await requireAdmin();
-  const [email, sms] = await Promise.all([
-    sendEmail({
-      to: config.owner.email, subject: "Cost Seg Trust test alert", purpose: "test",
-      text: "This is a test alert from your Cost Seg Trust admin.", html: "<p>This is a test alert from your Cost Seg Trust admin.</p>",
-    }),
-    sendSms({ to: config.owner.phone, body: "Cost Seg Trust: test alert from your admin.", purpose: "test" }),
-  ]);
-  const word = (r: { status: string; error?: string }) => (r.status === "sent" ? "sent" : `${r.status}${r.error ? ` (${r.error})` : ""}`);
-  return { ok: email.status === "sent" || sms.status === "sent", message: `Email ${word(email)}. Text ${word(sms)}.` };
+  const email = await sendEmail({
+    to: config.owner.emails, subject: "Cost Seg Trust test alert", purpose: "test",
+    text: "This is a test alert from your Cost Seg Trust admin.", html: "<p>This is a test alert from your Cost Seg Trust admin.</p>",
+  });
+  return { ok: email.status === "sent", message: `Email ${email.status === "sent" ? `sent to ${config.owner.emails.join(" and ")}` : `${email.status}${email.error ? ` (${email.error})` : ""}`}.` };
 }

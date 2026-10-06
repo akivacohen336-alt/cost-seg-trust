@@ -10,7 +10,7 @@ import { QUOTE_FIELDS, formatValue } from "@/lib/quote-fields";
 
 const EVENT_TEXT: Record<string, (d: any) => string> = {
   created: () => "Quote request received from the website",
-  owner_notified: d => `Owner alert: email ${d.email}, text ${d.sms}`,
+  owner_notified: d => `Owner alert: email ${d.email}${d.sms ? `, text ${d.sms}` : ""}`,
   hubspot_synced: d => `Synced to HubSpot (contact ${d.contactId}, deal ${d.dealId})`,
   hubspot_failed: d => `HubSpot sync failed: ${d.error}`,
   stage_changed: d => `Stage changed to ${d.stage}${d.outcome ? ` (${d.outcome})` : ""}`,

@@ -75,13 +75,12 @@ describe("quote request → deal", () => {
 
     // Owner alert: one email to the owner's inbox, one text to the owner's phone.
     expect(fake.state.emails).toHaveLength(1);
-    expect(fake.state.emails[0].to).toEqual(["akivacohen336@gmail.com"]);
+    expect(fake.state.emails[0].to).toEqual(["akivacohen336@gmail.com", "aron.turen@gmail.com"]);
     expect(fake.state.emails[0].subject).toBe("New deal #1001: Multifamily at 118 Maple Row, Columbus, OH, $2,400,000");
     expect(fake.state.emails[0].html).toContain(`https://costsegtrust.test/admin/deals/${d.id}`);
-    expect(fake.state.sms).toHaveLength(1);
-    expect(fake.state.sms[0].To).toBe("+13052191907");
+    expect(fake.state.sms).toHaveLength(0); // the owner gets no texts
     const notes = await sql`select channel, status from notifications order by channel`;
-    expect(notes.map((n: any) => `${n.channel}:${n.status}`)).toEqual(["email:sent", "sms:sent"]);
+    expect(notes.map((n: any) => `${n.channel}:${n.status}`)).toEqual(["email:sent"]);
 
     // HubSpot: pipeline + unique property set up on first use, one contact, one deal, associated.
     expect(fake.state.pipelines).toHaveLength(1);
@@ -111,7 +110,7 @@ describe("quote request → deal", () => {
     expect((await sql`select count(*)::int n from deals`)[0].n).toBe(1);
     expect(fake.state.deals).toHaveLength(1);
     expect(fake.state.emails).toHaveLength(1);
-    expect(fake.state.sms).toHaveLength(1);
+    expect(fake.state.sms).toHaveLength(0);
   });
 
   it("reuses one contact for a returning client with a second property", async () => {
@@ -186,7 +185,7 @@ describe("quote request → deal", () => {
     expect(d.hubspot_sync_status).toBe("failed");
     expect(d.hubspot_error).toContain("500");
     expect(fake.state.emails).toHaveLength(1);
-    expect(fake.state.sms).toHaveLength(1);
+    expect(fake.state.sms).toHaveLength(0);
     fake.state.failHubSpot = 0;
     expect((await deals.syncDealToHubSpot(d.id)).status).toBe("synced");
     await deals.syncDealToHubSpot(d.id);
@@ -248,15 +247,15 @@ describe("form validation", () => {
   });
 
   it("skips alerts cleanly when email and texting aren't connected", async () => {
-    const saved = { ...config.resend }, savedT = { ...config.twilio };
-    config.resend.apiKey = undefined; config.twilio.accountSid = undefined;
+    const saved = { ...config.resend };
+    config.resend.apiKey = undefined;
     try {
       await submit(form());
       const notes = await sql`select channel, status from notifications order by channel`;
-      expect(notes.map((n: any) => `${n.channel}:${n.status}`)).toEqual(["email:skipped", "sms:skipped"]);
+      expect(notes.map((n: any) => `${n.channel}:${n.status}`)).toEqual(["email:skipped"]);
       expect((await sql`select count(*)::int n from deals`)[0].n).toBe(1);
     } finally {
-      Object.assign(config.resend, saved); Object.assign(config.twilio, savedT);
+      Object.assign(config.resend, saved);
     }
   });
 });

@@ -2,7 +2,7 @@ import { z } from "zod";
 import { config } from "./config";
 import { db } from "./db";
 import { CONTACT_TOPICS } from "./contact-topics";
-import { esc, emailHtml, sendEmail, sendSms } from "./notify";
+import { esc, emailHtml, sendEmail } from "./notify";
 
 const optionalText = (max: number) =>
   z.preprocess(v => (typeof v === "string" && v.trim() === "" ? undefined : v), z.string().trim().max(max).optional());
@@ -28,14 +28,11 @@ export async function saveContactMessage(m: ContactMessage) {
   const body = `<p style="margin:0 0 10px"><b>${esc(headline)}</b></p>
     <p style="margin:0 0 4px">Email: ${esc(m.email)}${m.phone ? ` · Phone: ${esc(m.phone)}` : ""}</p>
     <p style="margin:12px 0 0;white-space:pre-line">${esc(m.message)}</p>`;
-  await Promise.all([
-    sendEmail({
-      to: config.owner.email, subject: headline, html: emailHtml("Website message", body, { href: link, label: "Open messages" }),
+  await sendEmail({
+      to: config.owner.emails, subject: headline, html: emailHtml("Website message", body, { href: link, label: "Open messages" }),
       text: `${headline}\n\nEmail: ${m.email}${m.phone ? `\nPhone: ${m.phone}` : ""}\n\n${m.message}\n\n${link}`,
       replyTo: m.email, purpose: "owner_contact_message",
-    }),
-    sendSms({ to: config.owner.phone, body: `Cost Seg Trust: ${headline}. ${link}`, purpose: "owner_contact_message" }),
-  ]);
+  });
   return { id: Number(row.id) };
 }
 

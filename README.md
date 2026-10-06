@@ -12,13 +12,13 @@ Website and back office for the Cost Seg Trust quote marketplace. Built in stage
 
 - **Next.js 15** (React 19, TypeScript). Hosts the website, the admin and the API.
 - **Postgres** (Supabase recommended, any Postgres 14+ works). The app talks to it from the server only.
-- **Resend** for email, **Twilio** for text messages, **HubSpot** for the CRM. Each is optional: when its keys are missing the app records "skipped" and carries on.
+- **Resend** for email, **HubSpot** for the CRM. Owner alerts go by email only (no texts). Each is optional: when its keys are missing the app records "skipped" and carries on.
 
 ## What happens when a client submits the form
 
 1. The form is validated in the browser and again on the server (bad entries come back with a message next to the field). A hidden field quietly drops bot submissions.
 2. The client is saved (one record per email address) and a new deal is created at stage **New Request** with the next CST number (CST-1001, CST-1002 …). Each form load carries a one-time key, so a double-click or retry never creates a second deal.
-3. You get an email at akivacohen336@gmail.com and a text at (305) 219-1907 with the details and a link to the deal.
+3. An email goes to akivacohen336@gmail.com and aron.turen@gmail.com with the details and a link to the deal.
 4. The deal is synced to HubSpot (see below).
 5. The client sees a thank-you message with their reference number.
 
@@ -42,7 +42,7 @@ Three test suppliers are seeded (Test Supplier A, B, C). Their emails are `akiva
 DATABASE_URL=postgres://… npm test
 ```
 
-19 automated tests run against a real Postgres database with stand-ins for HubSpot, Resend and Twilio, so no real account is touched. They cover the full submission, alerts, HubSpot contact and deal creation, duplicate submissions, returning clients, contacts that already exist in HubSpot, the "already exists" race, lost HubSpot IDs, HubSpot outages and retries, stage moves, pipeline setup, validation, bot filtering, and that every table is locked from public access.
+19 automated tests run against a real Postgres database with stand-ins for HubSpot and Resend, so no real account is touched. They cover the full submission, alerts, HubSpot contact and deal creation, duplicate submissions, returning clients, contacts that already exist in HubSpot, the "already exists" race, lost HubSpot IDs, HubSpot outages and retries, stage moves, pipeline setup, validation, bot filtering, and that every table is locked from public access.
 
 ## Setup checklist (one-time)
 
@@ -54,8 +54,7 @@ The database sets itself up: when the app starts it creates or upgrades every ta
 2. **Hosting (Vercel, free tier):** import this code from GitHub and add the environment variables below.
 3. **Admin password:** run `npm run hash-password -- "your password"` and paste the output as `ADMIN_PASSWORD_HASH`. Set `SESSION_SECRET` to any random string of 32+ characters.
 4. **Email (Resend):** create an account and an API key. To send from your own domain, verify the domain in Resend and set `EMAIL_FROM` (for example `Cost Seg Trust <alerts@yourdomain.com>`).
-5. **Text messages (Twilio):** create an account, buy a number and copy the Account SID and Auth Token. US texting needs A2P 10DLC registration in Twilio, which takes a few days.
-6. **HubSpot:** create a private app (HubSpot Settings → Integrations → Private Apps; newer accounts call these "Legacy apps") with these scopes: `crm.objects.contacts.read`, `crm.objects.contacts.write`, `crm.objects.deals.read`, `crm.objects.deals.write`, `crm.schemas.deals.read`, `crm.schemas.deals.write`. Copy its access token into `HUBSPOT_PRIVATE_APP_TOKEN`, then press **Set up HubSpot pipeline** on the admin Settings page.
+5. **HubSpot:** create a private app (HubSpot Settings → Integrations → Private Apps; newer accounts call these "Legacy apps") with these scopes: `crm.objects.contacts.read`, `crm.objects.contacts.write`, `crm.objects.deals.read`, `crm.objects.deals.write`, `crm.schemas.deals.read`, `crm.schemas.deals.write`. Copy its access token into `HUBSPOT_PRIVATE_APP_TOKEN`, then press **Set up HubSpot pipeline** on the admin Settings page.
    - HubSpot's free plan allows only one deal pipeline. On the free plan, set `HUBSPOT_PIPELINE_LABEL` to the name of your existing pipeline (usually "Sales Pipeline") and the app will add the seven stages to it.
 
 ### Environment variables
@@ -67,11 +66,9 @@ The database sets itself up: when the app starts it creates or upgrades every ta
 | `ADMIN_EMAIL` | yes | `akivacohen336@gmail.com` |
 | `ADMIN_PASSWORD_HASH` | yes | from `npm run hash-password` |
 | `SESSION_SECRET` | yes | random, 32+ characters |
-| `OWNER_NOTIFY_EMAIL` | no | defaults to `ADMIN_EMAIL` |
-| `OWNER_NOTIFY_PHONE` | no | defaults to `+13052191907` |
+| `OWNER_NOTIFY_EMAIL` | no | comma-separated alert recipients; defaults to `akivacohen336@gmail.com,aron.turen@gmail.com` |
 | `CONTACT_EMAIL`, `CONTACT_PHONE` | no | shown in the website footer |
 | `RESEND_API_KEY`, `EMAIL_FROM` | for email | |
-| `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER` | for texts | `TWILIO_FROM_NUMBER` like `+15551234567` |
 | `HUBSPOT_PRIVATE_APP_TOKEN` | for HubSpot | |
 | `HUBSPOT_PIPELINE_LABEL` | no | defaults to `Cost Seg Trust` |
 | `HUBSPOT_PORTAL_ID` | no | your HubSpot account ID, makes deal IDs clickable in the admin |
