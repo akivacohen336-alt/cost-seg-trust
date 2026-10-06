@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
-import { afterDealCreated, createDealFromRequest } from "@/lib/deals";
+import { contactSchema, saveContactMessage } from "@/lib/contact";
 import { ensureSchema } from "@/lib/migrate";
-import { quoteRequestSchema } from "@/lib/validation";
 
 export const runtime = "nodejs";
 
@@ -12,7 +11,7 @@ export async function POST(req: Request) {
   } catch {
     return NextResponse.json({ ok: false, error: "Invalid request" }, { status: 400 });
   }
-  const parsed = quoteRequestSchema.safeParse(body);
+  const parsed = contactSchema.safeParse(body);
   if (!parsed.success) {
     const fieldErrors: Record<string, string> = {};
     for (const issue of parsed.error.issues) {
@@ -22,20 +21,12 @@ export async function POST(req: Request) {
     }
     return NextResponse.json({ ok: false, error: "Please check the highlighted fields", fieldErrors }, { status: 422 });
   }
-
   try {
     await ensureSchema();
-    const result = await createDealFromRequest(parsed.data);
-    // The owner alert and HubSpot sync run before we answer, so serverless
-    // hosts don't stop them midway. Failures are recorded on the deal and
-    // never shown to the client.
-    if (!result.duplicate) await afterDealCreated(result.dealId);
-    return NextResponse.json({ ok: true, reference: `CST-${result.number}` });
+    await saveContactMessage(parsed.data);
+    return NextResponse.json({ ok: true });
   } catch (e) {
-    console.error("quote request failed", e);
-    return NextResponse.json(
-      { ok: false, error: "Something went wrong saving your request. Please try again or email us." },
-      { status: 500 },
-    );
+    console.error("contact message failed", e);
+    return NextResponse.json({ ok: false, error: "Something went wrong sending your message. Please email or call us instead." }, { status: 500 });
   }
 }

@@ -28,7 +28,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .field { display: grid; gap: 4px; font-size: .86rem; font-weight: 600; }
 .field .opt { font-weight: 400; color: var(--muted); }
 .field .err { color: var(--bad-ink); font-weight: 500; }
-input[type=text], input[type=email], input[type=tel], input[type=number], input[type=date], input[type=password], select, textarea {
+input[type=text], input[type=search], input[type=email], input[type=tel], input[type=number], input[type=date], input[type=password], select, textarea {
   width: 100%; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 9px 10px; font-weight: 400;
 }
 [aria-invalid="true"] { border-color: var(--bad-ink) !important; }
@@ -100,3 +100,12 @@ td a.rowlink:hover { text-decoration: underline; }
 .filters { display: flex; gap: 10px; flex-wrap: wrap; align-items: end; }
 .filters .field { min-width: 160px; }
 .login { max-width: 400px; margin: 10vh auto; padding-inline: 16px; }
+
+/* Client folders */
+.admin-search input { width: 220px; max-width: 46vw; border-radius: 8px; border: 1px solid rgba(255,255,255,.25); background: rgba(255,255,255,.1); color: #fff; padding: 6px 10px; }
+.admin-search input::placeholder { color: rgba(255,255,255,.65); }
+.folder-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+.folder { position: relative; display: grid; gap: 6px; text-decoration: none; color: inherit; border-top-left-radius: 0; margin-top: 10px; }
+.folder:hover { border-color: var(--emerald); }
+.folder-tab { position: absolute; top: -11px; left: -1px; width: 86px; height: 11px; background: var(--surface); border: 1px solid var(--line); border-bottom: 0; border-radius: 8px 8px 0 0; }
+.folder:hover .folder-tab { border-color: var(--emerald); }

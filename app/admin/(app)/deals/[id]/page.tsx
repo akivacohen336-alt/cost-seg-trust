@@ -75,7 +75,7 @@ export default async function DealPage({ params }: { params: Promise<{ id: strin
         </div>
         <StageSteps stage={d.stage} />
         <dl className="facts">
-          <div><dt>Client</dt><dd>{d.first_name} {d.last_name}</dd></div>
+          <div><dt>Client</dt><dd><a href={`/admin/clients/${d.client_id}`}>{d.first_name} {d.last_name}</a> <span className="small muted">(folder)</span></dd></div>
           <div><dt>Email</dt><dd><a href={`mailto:${d.email}`}>{d.email}</a></dd></div>
           <div><dt>Phone</dt><dd><a href={`tel:${String(d.phone).replace(/\D/g, "")}`}>{d.phone}</a></dd></div>
           <div><dt>Purchase price</dt><dd className="num">{usd(d.purchase_price)}</dd></div>

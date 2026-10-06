@@ -237,6 +237,21 @@ create table if not exists pdf_reports (
 );
 alter table pdf_reports enable row level security;
 
+-- ===== db/migrations/003_contact_messages.sql =====
+-- Messages sent from the public website's contact page.
+create table if not exists contact_messages (
+  id          bigserial primary key,
+  full_name   text not null,
+  email       text not null,
+  phone       text,
+  topic       text not null,
+  message     text not null,
+  handled     boolean not null default false,
+  created_at  timestamptz not null default now()
+);
+create index if not exists contact_messages_created_idx on contact_messages (created_at desc);
+alter table contact_messages enable row level security;
+
 -- ===== db/seed/test_suppliers.sql =====
 -- Test suppliers for safe end-to-end testing. Their emails use "+" addressing,
 -- so anything "sent to a supplier" lands in the owner's own Gmail inbox.
@@ -248,5 +263,5 @@ insert into suppliers (company_name, contact_name, email, description, is_test) 
 on conflict (email) do nothing;
 
 create table if not exists schema_migrations (name text primary key, applied_at timestamptz not null default now());
-insert into schema_migrations (name) values ('001_init.sql'), ('002_suppliers_ai_reports.sql') on conflict do nothing;
+insert into schema_migrations (name) values ('001_init.sql'), ('002_suppliers_ai_reports.sql'), ('003_contact_messages.sql') on conflict do nothing;
 alter table schema_migrations enable row level security;
