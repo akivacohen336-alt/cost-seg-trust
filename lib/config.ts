@@ -1,5 +1,5 @@
 // All configuration comes from environment variables. Anything optional
-// (email, SMS, HubSpot) is skipped cleanly when its keys are missing.
+// (email, HubSpot) is skipped cleanly when its keys are missing.
 const env = (k: string) => {
   const v = process.env[k];
   return v && v.trim() ? v.trim() : undefined;
@@ -21,21 +21,14 @@ export const config = {
   },
 
   owner: {
-    email: env("OWNER_NOTIFY_EMAIL") ?? env("ADMIN_EMAIL") ?? "akivacohen336@gmail.com",
-    phone: env("OWNER_NOTIFY_PHONE") ?? "+13052191907",
+    // Comma-separated; every alert email goes to each address.
+    emails: (env("OWNER_NOTIFY_EMAIL") ?? "akivacohen336@gmail.com,aron.turen@gmail.com").split(",").map(s => s.trim()).filter(Boolean),
   },
 
   resend: {
     apiKey: env("RESEND_API_KEY"),
     from: env("EMAIL_FROM") ?? "Cost Seg Trust <onboarding@resend.dev>",
     baseUrl: env("RESEND_API_URL") ?? "https://api.resend.com",
-  },
-
-  twilio: {
-    accountSid: env("TWILIO_ACCOUNT_SID"),
-    authToken: env("TWILIO_AUTH_TOKEN"),
-    from: env("TWILIO_FROM_NUMBER"),
-    baseUrl: env("TWILIO_API_URL") ?? "https://api.twilio.com",
   },
 
   anthropic: {
@@ -60,7 +53,6 @@ export const integrationStatus = () => ({
   database: !!config.databaseUrl,
   adminLogin: !!(config.admin.passwordHash && config.admin.sessionSecret),
   email: !!config.resend.apiKey,
-  sms: !!(config.twilio.accountSid && config.twilio.authToken && config.twilio.from),
   hubspot: !!config.hubspot.token,
   ai: !!config.anthropic.apiKey,
   scheduler: !!config.cronSecret,

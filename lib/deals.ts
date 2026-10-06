@@ -47,7 +47,7 @@ export async function afterDealCreated(dealId: string) {
       renovationSpend: d.renovation_spend == null ? null : Number(d.renovation_spend), hasCpa: d.has_cpa, notes: d.client_notes,
       utm: [d.utm_source, d.utm_medium, d.utm_campaign].filter(Boolean).join(" / ") || null,
     }).then(async r => {
-      await logEvent(dealId, "owner_notified", { email: r.email.status, sms: r.sms.status });
+      await logEvent(dealId, "owner_notified", { email: r.email.status });
     }),
     syncDealToHubSpot(dealId),
   ]);

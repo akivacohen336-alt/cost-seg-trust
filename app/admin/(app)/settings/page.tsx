@@ -8,8 +8,7 @@ export default async function SettingsPage() {
   const rows: [string, boolean, string][] = [
     ["Database", s.database, "Stores deals, clients and suppliers."],
     ["Admin login", s.adminLogin, "Password sign-in for this dashboard."],
-    ["Email alerts (Resend)", s.email, `New-deal emails go to ${config.owner.email}.`],
-    ["Text alerts (Twilio)", s.sms, `New-deal texts go to ${config.owner.phone}.`],
+    ["Email alerts (Resend)", s.email, `New requests, deal updates and website messages are emailed to ${config.owner.emails.join(" and ")}.`],
     ["HubSpot", s.hubspot, pipe ? `Pipeline "${config.hubspot.pipelineLabel}" is set up.` : "Contacts and deals sync once connected."],
     ["AI (Claude)", s.ai, "Reads supplier proposal PDFs into standard numbers and writes the comparison summary."],
     ["Hourly scheduler", s.scheduler, `Runs the ${config.quoteWindowHours}-hour clock: reminders after ${config.reminderAfterHours} hours, then closes the window. It also runs whenever you open this dashboard.`],
@@ -27,7 +26,7 @@ export default async function SettingsPage() {
           </tbody>
         </table>
       </div>
-      <SettingsActions hubspot={s.hubspot} alerts={s.email || s.sms} />
+      <SettingsActions hubspot={s.hubspot} alerts={s.email} />
       <DeadlineCheck />
     </>
   );
