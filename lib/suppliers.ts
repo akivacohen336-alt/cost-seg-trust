@@ -15,14 +15,28 @@ const fmtDate = (v: Date | string) => (v instanceof Date ? v.toISOString() : Str
 const dueText = (d: Date) =>
   d.toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: "America/New_York", timeZoneName: "short" });
 
-/** Property facts a supplier may see. Never the client's name, email, phone or street address. */
+/**
+ * Only "City, ST" from what the client typed after the street. Digits (unit
+ * and ZIP), emails and anything before the last two parts are dropped, so a
+ * street, unit or name typed into the address box can't reach a supplier.
+ */
+export function supplierLocation(cityState: string | null | undefined): string | null {
+  const parts = (cityState ?? "").split(",").map(p => p.replace(/\S*@\S*/g, "").replace(/\S*[#\d]\S*/g, "").replace(/\s+/g, " ").trim()).filter(Boolean);
+  return parts.length ? parts.slice(-2).join(", ") : null;
+}
+
+/** Land value only when it is a plain amount or percent, never free text. */
+const supplierLandValue = (v: string | null | undefined) =>
+  !v ? "Not provided" : /^[\s$\d.,%~kKmM-]+$/.test(v) ? v.trim() : "Provided after engagement";
+
+/** Property facts a supplier may see. Never the client's name, email, phone, street address or notes. */
 export function supplierFacts(d: any) {
   return [
     ["Property type", d.property_type],
-    ["Location", d.property_city_state || "Provided after engagement"],
+    ["Location", supplierLocation(d.property_city_state) || "Provided after engagement"],
     ["Purchase price", usd(d.purchase_price)],
     ["Placed in service", fmtDate(d.placed_in_service)],
-    ["Land value", d.land_value || "Not provided"],
+    ["Land value", supplierLandValue(d.land_value)],
     ["Renovation spend", d.renovation_spend == null ? "Not provided" : usd(d.renovation_spend)],
     ["Owner has a CPA", d.has_cpa == null ? "Not provided" : d.has_cpa ? "Yes" : "No"],
   ] as [string, string][];
@@ -31,7 +45,7 @@ export function supplierFacts(d: any) {
 async function emailInvite(d: any, supplier: any, token: string, due: Date, kind: "invite" | "reminder") {
   const facts = supplierFacts(d);
   const subject = kind === "invite"
-    ? `Quote request CST-${d.number}: ${d.property_type} in ${d.property_city_state ?? "the US"}`
+    ? `Quote request CST-${d.number}: ${d.property_type} in ${supplierLocation(d.property_city_state) ?? "the US"}`
     : `Reminder: quote request CST-${d.number} is due ${dueText(due)}`;
   const intro = kind === "invite"
     ? `<p style="margin:0 0 12px">Hi ${esc(supplier.contact_name || supplier.company_name)},</p><p style="margin:0 0 12px">Cost Seg Trust has a new cost segregation opportunity and would like your quote. Please respond by <b>${esc(dueText(due))}</b> (${config.quoteWindowHours} hours).</p>`
