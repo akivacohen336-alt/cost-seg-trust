@@ -446,3 +446,23 @@ describe("real suppliers and test deals", () => {
     expect((await suppliers.sendDealToSuppliers(realDeal, [real.id])).invited).toBe(1);
   });
 });
+
+describe("what suppliers can see", () => {
+  it("shows only city and state, never a street, unit, ZIP, email or name typed into the address", () => {
+    const loc = suppliers.supplierLocation;
+    expect(loc("Columbus, OH")).toBe("Columbus, OH");
+    expect(loc("Miami, FL 33131")).toBe("Miami, FL");
+    expect(loc("Apt 4B, Miami, FL 33131")).toBe("Miami, FL");
+    expect(loc("John Smith, 22 Oak St, Miami, FL")).toBe("Miami, FL");
+    expect(loc("call 305-555-0142, john@example.com")).toBe("call");
+    expect(loc(null)).toBeNull();
+  });
+  it("hides a land value that isn't a plain amount", () => {
+    const land = (v: string | null) => suppliers.supplierFacts({ property_type: "Office", purchase_price: 1, placed_in_service: "2026-01-01", land_value: v })
+      .find(([k]) => k === "Land value")![1];
+    expect(land("20%")).toBe("20%");
+    expect(land("$400,000")).toBe("$400,000");
+    expect(land("ask John at 305 555 0142")).toBe("Provided after engagement");
+    expect(land(null)).toBe("Not provided");
+  });
+});
