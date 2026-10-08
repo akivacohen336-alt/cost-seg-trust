@@ -66,8 +66,9 @@ export async function loadClientFolder(clientId: string) {
                              from clients where id = ${clientId}`;
   if (!client) return null;
   const [deals, uploads, proposals, reports, messages] = await Promise.all([
-    sql`select id, number, created_at, stage, property_type, property_address, purchase_price
-        from deals where client_id = ${clientId} order by created_at desc`,
+    sql`select d.id, d.number, d.created_at, d.stage, d.property_type, d.property_address, d.purchase_price,
+               d.partner_id, p.name as partner_name
+        from deals d left join partners p on p.id = d.partner_id where d.client_id = ${clientId} order by d.created_at desc`,
     sql`select f.id, f.filename, f.content_type, f.size_bytes, f.created_at, f.deal_id, d.number as deal_number
         from client_files f left join deals d on d.id = f.deal_id
         where f.client_id = ${clientId} order by f.created_at desc`,

@@ -8,6 +8,7 @@ export default function AdminHeader() {
         <nav>
           <a href="/admin">Deals</a>
           <a href="/admin/clients">Clients</a>
+          <a href="/admin/partners">Partners</a>
           <a href="/admin/suppliers">Suppliers</a>
           <a href="/admin/messages">Messages</a>
           <a href="/admin/settings">Settings</a>

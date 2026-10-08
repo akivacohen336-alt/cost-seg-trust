@@ -47,6 +47,7 @@ export type NewDealSummary = {
   propertyType: string; address: string; purchasePrice: number; placedInService: string;
   landValue?: string | null; renovationSpend?: number | null; hasCpa?: boolean | null; notes?: string | null;
   utm?: string | null;
+  partner?: string | null;
 };
 
 export async function notifyOwnerOfNewDeal(d: NewDealSummary) {
@@ -59,6 +60,7 @@ export async function notifyOwnerOfNewDeal(d: NewDealSummary) {
     ["Renovation spend", d.renovationSpend ? usd(d.renovationSpend) : "—"],
     ["Has a CPA", d.hasCpa == null ? "—" : d.hasCpa ? "Yes" : "No"], ["Notes", d.notes || "—"],
     ["Source", d.utm || "Website (direct)"],
+    ...(d.partner ? [["Referred by", d.partner] as [string, string]] : []),
   ];
   const html = `<div style="font-family:Arial,sans-serif;color:#1F2937;max-width:560px">
     <div style="background:#0F2A44;color:#fff;padding:16px 20px;border-radius:10px 10px 0 0"><b style="font-size:18px">Cost Seg Trust</b><br><span style="opacity:.85">New quote request</span></div>

@@ -7,7 +7,7 @@ type Errors = Record<string, string>;
 
 export default function QuoteForm() {
   const requestKey = useMemo(() => crypto.randomUUID(), []);
-  const [utm, setUtm] = useState({ utmSource: "", utmMedium: "", utmCampaign: "" });
+  const [utm, setUtm] = useState({ utmSource: "", utmMedium: "", utmCampaign: "", ref: "" });
   const [errors, setErrors] = useState<Errors>({});
   const [formError, setFormError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -15,7 +15,7 @@ export default function QuoteForm() {
 
   useEffect(() => {
     const p = new URLSearchParams(window.location.search);
-    setUtm({ utmSource: p.get("utm_source") ?? "", utmMedium: p.get("utm_medium") ?? "", utmCampaign: p.get("utm_campaign") ?? "" });
+    setUtm({ utmSource: p.get("utm_source") ?? "", utmMedium: p.get("utm_medium") ?? "", utmCampaign: p.get("utm_campaign") ?? "", ref: p.get("ref") ?? "" });
   }, []);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {

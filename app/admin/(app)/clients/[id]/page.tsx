@@ -41,7 +41,7 @@ export default async function ClientFolderPage({ params }: { params: Promise<{ i
             {deals.length === 0 ? <p className="small muted" style={{ margin: 0 }}>No deals yet.</p> : (
               <div className="tablewrap">
                 <table>
-                  <thead><tr><th>Deal</th><th>Property</th><th>Price</th><th>Stage</th><th>Received</th></tr></thead>
+                  <thead><tr><th>Deal</th><th>Property</th><th>Price</th><th>Stage</th><th>Partner</th><th>Received</th></tr></thead>
                   <tbody>
                     {deals.map(d => (
                       <tr key={d.id}>
@@ -49,6 +49,7 @@ export default async function ClientFolderPage({ params }: { params: Promise<{ i
                         <td>{d.property_type}<div className="small muted">{d.property_address}</div></td>
                         <td className="num">{usd(d.purchase_price)}</td>
                         <td><StagePill stage={d.stage} /></td>
+                        <td className="small">{d.partner_id ? <a href={`/admin/partners/${d.partner_id}`}>{d.partner_name}</a> : "—"}</td>
                         <td className="small">{dateOnly(d.created_at)}</td>
                       </tr>
                     ))}
