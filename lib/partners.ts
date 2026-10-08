@@ -6,7 +6,7 @@ import { db } from "./db";
 import { supplierLocation } from "./suppliers";
 
 export const REF_COOKIE = "cst_ref";
-export const REF_COOKIE_DAYS = 60;
+export const REF_COOKIE_DAYS = 365;
 
 /** Turns a name or typed code into a link-safe code: "Smith & Co." -> "smith-co". */
 export function normalizeCode(s: string) {

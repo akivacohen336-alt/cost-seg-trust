@@ -71,6 +71,8 @@ export async function setDealPartner(form: FormData) {
     update deals set partner_id = ${partnerId || null} where id = ${dealId}
     returning (select name from partners where id = partner_id) as partner`;
   if (!d) return;
+  // A client tagged by hand for the first time stays with that partner for future deals.
+  if (partnerId) await db()`update clients set partner_id = ${partnerId} where id = (select client_id from deals where id = ${dealId}) and partner_id is null`;
   await logEvent(dealId, "partner_set", { partner: d.partner ?? null });
   revalidatePath(`/admin/deals/${dealId}`);
   if (partnerId) revalidatePath(`/admin/partners/${partnerId}`);

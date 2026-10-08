@@ -15,7 +15,9 @@ export async function createDealFromRequest(r: QuoteRequest): Promise<CreateResu
       insert into clients (email, first_name, last_name, phone)
       values (${r.email}, ${first}, ${last}, ${r.phone})
       on conflict (email) do update set first_name = excluded.first_name, last_name = excluded.last_name, phone = excluded.phone
-      returning id`;
+      returning id, partner_id`;
+    // The partner who first referred this client keeps them; otherwise the partner link used now, if any.
+    const partnerId = client.partner_id ?? (r.ref ? (await tx`select id from partners where code = ${r.ref} and active`)[0]?.id ?? null : null);
     const [deal] = await tx`
       insert into deals (request_key, client_id, property_address, property_city_state, property_type, purchase_price,
         placed_in_service, land_value, renovation_spend, has_cpa, client_notes, consent_contact, consent_at,
@@ -24,14 +26,15 @@ export async function createDealFromRequest(r: QuoteRequest): Promise<CreateResu
         ${r.purchasePrice}, ${r.placedInService}, ${r.landValue ?? null}, ${r.renovationSpend ?? null},
         ${r.hasCpa ? r.hasCpa === "yes" : null}, ${r.notes ?? null}, true, now(),
         ${r.utmSource ?? null}, ${r.utmMedium ?? null}, ${r.utmCampaign ?? null},
-        (select id from partners where code = ${r.ref ?? null} and active))
+        ${partnerId})
       on conflict (request_key) do nothing
       returning id, number, partner_id`;
     if (!deal) {
       const [existing] = await tx`select id, number from deals where request_key = ${r.requestKey}`;
       return { dealId: existing.id, number: existing.number, duplicate: true };
     }
-    await tx`insert into deal_events (deal_id, kind, detail) values (${deal.id}, 'created', ${tx.json({ source: r.utmSource ?? "website", ...(deal.partner_id ? { partner: r.ref } : {}) })})`;
+    if (partnerId && !client.partner_id) await tx`update clients set partner_id = ${partnerId} where id = ${client.id}`;
+    await tx`insert into deal_events (deal_id, kind, detail) values (${deal.id}, 'created', ${tx.json({ source: r.utmSource ?? "website", ...(partnerId ? { partner: client.partner_id ? "returning client" : r.ref } : {}) })})`;
     return { dealId: deal.id, number: deal.number, duplicate: false };
   });
 }

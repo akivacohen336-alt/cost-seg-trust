@@ -5,7 +5,7 @@ import { REF_COOKIE, REF_COOKIE_DAYS, findActivePartnerByCode } from "@/lib/part
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// A partner's referral link. Remembers the partner for 60 days, so a client
+// A partner's referral link. Remembers the partner for a year, so a client
 // who looks around first and requests quotes later is still credited.
 export async function GET(req: Request, { params }: { params: Promise<{ code: string }> }) {
   const { code } = await params;

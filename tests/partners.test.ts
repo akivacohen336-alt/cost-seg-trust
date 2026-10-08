@@ -75,7 +75,7 @@ describe("referral link", () => {
     const res = await refRoute.GET(new Request("https://costsegtrust.test/r/Jane-Smith"), { params: Promise.resolve({ code: "Jane-Smith" }) });
     expect(res.status).toBe(307);
     expect(res.headers.get("location")).toBe("https://costsegtrust.test/quote?ref=jane-smith");
-    expect(res.headers.get("set-cookie")).toMatch(/cst_ref=jane-smith;.*Max-Age=5184000/i);
+    expect(res.headers.get("set-cookie")).toMatch(/cst_ref=jane-smith;.*Max-Age=31536000/i);
   });
   it("sends unknown or inactive codes to the plain form without a cookie", async () => {
     const p = await addPartner({ name: "Jane Smith" });
@@ -95,6 +95,24 @@ describe("tagging deals", () => {
     expect((await lastDeal()).partner_id).toBe(p.id);
     expect(fake.state.emails[0].text).toContain("Referred by: Jane Smith (Smith Realty)");
     await quote({}, "other=1; cst_ref=jane-smith");
+    expect((await lastDeal()).partner_id).toBe(p.id);
+  });
+  it("credits a referred client's later deals to the partner who first referred them", async () => {
+    const a = await addPartner({ name: "Partner A" });
+    const b = await addPartner({ name: "Partner B" });
+    await quote({ ref: "partner-a", email: "ana@example.com" });
+    await quote({ email: "ana@example.com" });                 // comes back without any link
+    expect((await lastDeal()).partner_id).toBe(a.id);
+    await quote({ ref: "partner-b", email: "ana@example.com" }); // another partner's link later
+    expect((await lastDeal()).partner_id).toBe(a.id);
+    expect((await partners.partnerPortalDeals(a.id))).toHaveLength(3);
+    expect((await partners.partnerPortalDeals(b.id))).toHaveLength(0);
+  });
+  it("keeps a client tagged by hand with that partner", async () => {
+    const p = await addPartner({ name: "Jane Smith" });
+    await quote({ email: "ben@example.com" });
+    await actions.setDealPartner(form({ dealId: (await lastDeal()).id, partnerId: p.id }));
+    await quote({ email: "ben@example.com" });
     expect((await lastDeal()).partner_id).toBe(p.id);
   });
   it("leaves deals untagged without a valid, active partner", async () => {

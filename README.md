@@ -94,7 +94,7 @@ When putting `ADMIN_PASSWORD_HASH` in a local `.env.local` file, write each `$` 
 
 Admin → **Partners** adds a partner and gives them two links:
 
-- **Referral link** (`/r/CODE`): sends clients to the quote form and remembers the partner for 60 days, so any quote request from that browser is tagged to the partner. `/quote?ref=CODE` works too.
+- **Referral link** (`/r/CODE`): sends clients to the quote form and remembers the partner for a year, so any quote request from that browser is tagged to the partner. A referred client stays with the partner who first referred them: their later deals are credited to that partner automatically. `/quote?ref=CODE` works too.
 - **Partner page** (`/partner/…`): a private page, no password, listing the deals they referred with stage and commission. Partners see the client's first name and last initial, property type and city/state only; never contact details, street address or price. "Replace page link" retires the old link.
 
 Deals can also be tagged to a partner by hand on the deal page. Commission per deal (amount and paid) is set on the partner's admin page. Suppliers never see anything about partners. Adding a partner sends nothing.
