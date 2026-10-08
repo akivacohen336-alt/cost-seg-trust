@@ -15,22 +15,26 @@ export async function createDealFromRequest(r: QuoteRequest): Promise<CreateResu
       insert into clients (email, first_name, last_name, phone)
       values (${r.email}, ${first}, ${last}, ${r.phone})
       on conflict (email) do update set first_name = excluded.first_name, last_name = excluded.last_name, phone = excluded.phone
-      returning id`;
+      returning id, partner_id`;
+    // The partner who first referred this client keeps them; otherwise the partner link used now, if any.
+    const partnerId = client.partner_id ?? (r.ref ? (await tx`select id from partners where code = ${r.ref} and active`)[0]?.id ?? null : null);
     const [deal] = await tx`
       insert into deals (request_key, client_id, property_address, property_city_state, property_type, purchase_price,
         placed_in_service, land_value, renovation_spend, has_cpa, client_notes, consent_contact, consent_at,
-        utm_source, utm_medium, utm_campaign)
+        utm_source, utm_medium, utm_campaign, partner_id)
       values (${r.requestKey}, ${client.id}, ${r.propertyAddress}, ${cityState(r.propertyAddress)}, ${r.propertyType},
         ${r.purchasePrice}, ${r.placedInService}, ${r.landValue ?? null}, ${r.renovationSpend ?? null},
         ${r.hasCpa ? r.hasCpa === "yes" : null}, ${r.notes ?? null}, true, now(),
-        ${r.utmSource ?? null}, ${r.utmMedium ?? null}, ${r.utmCampaign ?? null})
+        ${r.utmSource ?? null}, ${r.utmMedium ?? null}, ${r.utmCampaign ?? null},
+        ${partnerId})
       on conflict (request_key) do nothing
-      returning id, number`;
+      returning id, number, partner_id`;
     if (!deal) {
       const [existing] = await tx`select id, number from deals where request_key = ${r.requestKey}`;
       return { dealId: existing.id, number: existing.number, duplicate: true };
     }
-    await tx`insert into deal_events (deal_id, kind, detail) values (${deal.id}, 'created', ${tx.json({ source: r.utmSource ?? "website" })})`;
+    if (partnerId && !client.partner_id) await tx`update clients set partner_id = ${partnerId} where id = ${client.id}`;
+    await tx`insert into deal_events (deal_id, kind, detail) values (${deal.id}, 'created', ${tx.json({ source: r.utmSource ?? "website", ...(partnerId ? { partner: client.partner_id ? "returning client" : r.ref } : {}) })})`;
     return { dealId: deal.id, number: deal.number, duplicate: false };
   });
 }
@@ -46,6 +50,7 @@ export async function afterDealCreated(dealId: string) {
       placedInService: fmtDate(d.placed_in_service), landValue: d.land_value,
       renovationSpend: d.renovation_spend == null ? null : Number(d.renovation_spend), hasCpa: d.has_cpa, notes: d.client_notes,
       utm: [d.utm_source, d.utm_medium, d.utm_campaign].filter(Boolean).join(" / ") || null,
+      partner: partnerName(d),
     }).then(async r => {
       await logEvent(dealId, "owner_notified", { email: r.email.status });
     }),
@@ -56,10 +61,15 @@ export async function afterDealCreated(dealId: string) {
 
 export async function loadDeal(dealId: string): Promise<any> {
   const [d] = await db()`
-    select d.*, c.email::text as email, c.first_name, c.last_name, c.phone, c.hubspot_contact_id
-    from deals d join clients c on c.id = d.client_id where d.id = ${dealId}`;
+    select d.*, c.email::text as email, c.first_name, c.last_name, c.phone, c.hubspot_contact_id,
+           p.name as partner_name, p.company as partner_company
+    from deals d join clients c on c.id = d.client_id left join partners p on p.id = d.partner_id where d.id = ${dealId}`;
   return d;
 }
+
+/** "Jane Smith (Smith Realty)", or null when no partner referred the deal. */
+export const partnerName = (d: { partner_name?: string | null; partner_company?: string | null }) =>
+  d.partner_name ? `${d.partner_name}${d.partner_company ? ` (${d.partner_company})` : ""}` : null;
 
 const fmtDate = (v: Date | string) => (v instanceof Date ? v.toISOString().slice(0, 10) : String(v).slice(0, 10));
 
@@ -76,6 +86,7 @@ function hubspotDescription(d: any) {
     `Renovation spend: ${d.renovation_spend == null ? "—" : usd(d.renovation_spend)}`,
     `Has a CPA: ${d.has_cpa == null ? "—" : d.has_cpa ? "Yes" : "No"}`,
     d.client_notes ? `Client notes: ${d.client_notes}` : null,
+    partnerName(d) ? `Referred by: ${partnerName(d)}` : null,
     `Admin: ${config.appUrl}/admin/deals/${d.id}`,
   ].filter(Boolean).join("\n");
 }

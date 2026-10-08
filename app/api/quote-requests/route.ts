@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { afterDealCreated, createDealFromRequest } from "@/lib/deals";
 import { ensureSchema } from "@/lib/migrate";
+import { REF_COOKIE, normalizeCode } from "@/lib/partners";
 import { quoteRequestSchema } from "@/lib/validation";
 
 export const runtime = "nodejs";
@@ -25,7 +26,9 @@ export async function POST(req: Request) {
 
   try {
     await ensureSchema();
-    const result = await createDealFromRequest(parsed.data);
+    // A partner code in the form wins; otherwise the cookie set by a partner's /r/ link.
+    const ref = normalizeCode(parsed.data.ref ?? cookieValue(req, REF_COOKIE) ?? "") || undefined;
+    const result = await createDealFromRequest({ ...parsed.data, ref });
     // The owner alert and HubSpot sync run before we answer, so serverless
     // hosts don't stop them midway. Failures are recorded on the deal and
     // never shown to the client.
@@ -38,4 +41,9 @@ export async function POST(req: Request) {
       { status: 500 },
     );
   }
+}
+
+function cookieValue(req: Request, name: string) {
+  const m = (req.headers.get("cookie") ?? "").match(new RegExp(`(?:^|;\\s*)${name}=([^;]*)`));
+  return m ? decodeURIComponent(m[1]) : undefined;
 }

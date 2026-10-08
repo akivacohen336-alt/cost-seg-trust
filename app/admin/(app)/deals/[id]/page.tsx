@@ -1,18 +1,20 @@
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
-import { loadDeal } from "@/lib/deals";
+import { loadDeal, partnerName } from "@/lib/deals";
 import { STAGES, stageLabel } from "@/lib/stages";
 import { changeStage, retryHubSpot, saveNotes } from "../../../actions";
+import { setDealPartner } from "../../../partner-actions";
 import { StagePill, StageSteps, SyncPill, dateOnly, dateTime, usd } from "@/components/ui";
 import { BuildComparisonButton, InviteActions, SendToSuppliersForm } from "@/components/SupplierActions";
 import { config } from "@/lib/config";
 import { QUOTE_FIELDS, formatValue } from "@/lib/quote-fields";
 
 const EVENT_TEXT: Record<string, (d: any) => string> = {
-  created: () => "Quote request received from the website",
+  created: d => `Quote request received from the website${d.partner ? ` ${d.partner === "returning client" ? " (returning client of a partner)" : ` through partner link "${d.partner}"`}` : ""}`,
   owner_notified: d => `Owner alert: email ${d.email}${d.sms ? `, text ${d.sms}` : ""}`,
   hubspot_synced: d => `Synced to HubSpot (contact ${d.contactId}, deal ${d.dealId})`,
   hubspot_failed: d => `HubSpot sync failed: ${d.error}`,
+  partner_set: d => (d.partner ? `Tagged to partner ${d.partner}` : "Partner removed"),
   stage_changed: d => `Stage changed to ${d.stage}${d.outcome ? ` (${d.outcome})` : ""}`,
   notes_updated: () => "Notes updated",
   supplier_invited: d => `Quote request sent to ${d.supplier} (email ${d.email})`,
@@ -47,7 +49,7 @@ export default async function DealPage({ params }: { params: Promise<{ id: strin
   const d = await loadDeal(id);
   if (!d) notFound();
   const sql = db();
-  const [events, notes, invites, available, [comparison]] = await Promise.all([
+  const [events, notes, invites, available, [comparison], partners] = await Promise.all([
     sql`select kind, detail, created_at from deal_events where deal_id = ${id} order by created_at desc, id desc limit 100`,
     sql`select channel, recipient, purpose, status, error, created_at from notifications where deal_id = ${id} order by created_at desc limit 50`,
     sql`select i.*, s.company_name, s.is_test, q.id as quote_id, q.fee, q.est_first_year_tax_savings, q.proposal_filename,
@@ -57,6 +59,7 @@ export default async function DealPage({ params }: { params: Promise<{ id: strin
     sql`select id, company_name, email::text as email, is_test from suppliers
         where active and (is_test or not ${d.is_test}::boolean) and id not in (select supplier_id from supplier_invites where deal_id = ${id}) order by is_test desc, company_name`,
     sql`select status from comparisons where deal_id = ${id}`,
+    sql`select id, name, company from partners where active or id = ${d.partner_id} order by name`,
   ]);
   const quoted = invites.filter(i => i.status === "submitted").length;
   const room = config.maxSuppliersPerDeal - invites.length;
@@ -84,6 +87,17 @@ export default async function DealPage({ params }: { params: Promise<{ id: strin
           <div><dt>Renovation spend</dt><dd className="num">{usd(d.renovation_spend)}</dd></div>
           <div><dt>Has a CPA</dt><dd>{d.has_cpa == null ? "—" : d.has_cpa ? "Yes" : "No"}</dd></div>
           <div><dt>Source</dt><dd>{[d.utm_source, d.utm_medium, d.utm_campaign].filter(Boolean).join(" / ") || "Website"}</dd></div>
+          <div><dt>Referred by</dt><dd>
+            {d.partner_id ? <a href={`/admin/partners/${d.partner_id}`}>{partnerName(d)}</a> : <span className="muted">No partner</span>}
+            <form action={setDealPartner} className="row" style={{ gap: 6, marginTop: 4, flexWrap: "nowrap" }}>
+              <input type="hidden" name="dealId" value={d.id} />
+              <select name="partnerId" defaultValue={d.partner_id ?? ""} aria-label="Partner" style={{ minWidth: 0, flex: 1 }}>
+                <option value="">No partner</option>
+                {partners.map(p => <option key={p.id} value={p.id}>{p.name}{p.company ? ` (${p.company})` : ""}</option>)}
+              </select>
+              <button className="btn sm" type="submit" style={{ whiteSpace: "nowrap" }}>Set</button>
+            </form>
+          </dd></div>
           <div><dt>Contact consent</dt><dd>{d.consent_contact ? `Yes, ${dateTime(d.consent_at)}` : "No"}</dd></div>
         </dl>
         {d.client_notes ? <p style={{ margin: 0 }}><b>Client notes:</b> {d.client_notes}</p> : null}
