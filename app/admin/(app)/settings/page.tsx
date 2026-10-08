@@ -10,7 +10,7 @@ export default async function SettingsPage() {
     ["Admin login", s.adminLogin, "Password sign-in for this dashboard."],
     ["Email alerts (Resend)", s.email, `New requests, deal updates and website messages are emailed to ${config.owner.emails.join(" and ")}.`],
     ["HubSpot", s.hubspot, pipe ? `Pipeline "${config.hubspot.pipelineLabel}" is set up.` : "Contacts and deals sync once connected."],
-    ["AI (Claude)", s.ai, "Reads supplier proposal PDFs into standard numbers and writes the comparison summary."],
+    ["AI", s.ai, "Reads supplier proposal PDFs into standard numbers and writes the comparison summary."],
     ["Hourly scheduler", s.scheduler, `Runs the ${config.quoteWindowHours}-hour clock: reminders after ${config.reminderAfterHours} hours, then closes the window. It also runs whenever you open this dashboard.`],
   ];
   return (
