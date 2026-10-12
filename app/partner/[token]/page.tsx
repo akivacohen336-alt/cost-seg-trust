@@ -3,6 +3,7 @@ import { findPartnerByToken, partnerPortalDeals, referralLink } from "@/lib/part
 import { config } from "@/lib/config";
 import CopyLink from "@/components/CopyLink";
 import { StagePill, dateOnly, usd } from "@/components/ui";
+import BrandMark from "@/components/BrandMark";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Cost Seg Trust · Partner deals", robots: { index: false, follow: false } };
@@ -10,7 +11,7 @@ export const metadata = { title: "Cost Seg Trust · Partner deals", robots: { in
 function Shell({ children }: { children: React.ReactNode }) {
   return (
     <>
-      <header className="site-hdr"><div className="wrap"><span className="brand">Cost Seg <span>Trust</span></span><div className="spacer" /><span className="small muted">Partner page</span></div></header>
+      <header className="site-hdr"><div className="wrap"><span className="brand brand-row"><BrandMark />Cost Seg <span>Trust</span></span><div className="spacer" /><span className="small muted">Partner page</span></div></header>
       <main className="wrap" style={{ maxWidth: 960, paddingBlock: "28px 64px", display: "grid", gap: 18 }}>{children}</main>
     </>
   );

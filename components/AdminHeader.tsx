@@ -1,10 +1,11 @@
 import { logout } from "@/app/admin/actions";
+import BrandMark from "@/components/BrandMark";
 
 export default function AdminHeader() {
   return (
     <header className="admin-hdr">
       <div className="wrap">
-        <a className="brand" href="/admin">Cost Seg <span>Trust</span></a>
+        <a className="brand brand-row" href="/admin"><BrandMark />Cost Seg <span>Trust</span></a>
         <nav>
           <a href="/admin">Deals</a>
           <a href="/admin/clients">Clients</a>

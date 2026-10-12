@@ -1,5 +1,6 @@
 import { findInvite, markViewed, supplierFacts, supplierLocation } from "@/lib/suppliers";
 import SupplierQuoteForm from "@/components/SupplierQuoteForm";
+import BrandMark from "@/components/BrandMark";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Cost Seg Trust · Quote request", robots: { index: false } };
@@ -10,7 +11,7 @@ const due = (d: Date) =>
 function Shell({ children }: { children: React.ReactNode }) {
   return (
     <>
-      <header className="site-hdr"><div className="wrap"><span className="brand">Cost Seg <span>Trust</span></span><div className="spacer" /><span className="small muted">Supplier quote</span></div></header>
+      <header className="site-hdr"><div className="wrap"><span className="brand brand-row"><BrandMark />Cost Seg <span>Trust</span></span><div className="spacer" /><span className="small muted">Supplier quote</span></div></header>
       <main className="wrap" style={{ maxWidth: 900, paddingBlock: "28px 64px", display: "grid", gap: 18 }}>{children}</main>
     </>
   );

@@ -60,10 +60,8 @@ body.menu-open { overflow: hidden; }
 .site .s-logo { text-decoration: none; color: var(--s-navy); flex-shrink: 0; }
 .s-wordmark { display: inline-flex; align-items: center; gap: 10px; color: var(--s-navy); }
 .s-wordmark.is-light { color: #fff; }
-.s-seal { width: 30px; height: 30px; color: var(--s-brass); }
-.s-wordmark.is-light .s-seal { color: var(--s-brass-light); }
-.s-name { font-family: var(--s-serif); font-size: 1.28rem; font-weight: 500; letter-spacing: -.01em; white-space: nowrap; }
-.s-name b { font-weight: 600; }
+.s-seal { width: auto; height: 40px; display: block; }
+.s-name { font-family: var(--s-sans); font-size: 1.3rem; font-weight: 700; letter-spacing: -.01em; white-space: nowrap; }
 .s-nav { display: flex; gap: 2px; margin-left: auto; }
 .site .s-nav a { color: var(--s-body); text-decoration: none; font-size: .92rem; font-weight: 500; padding: 8px 12px; border-radius: var(--s-radius); position: relative; }
 .site .s-nav a:hover { color: var(--s-ink); background: var(--s-paper-2); }
@@ -94,8 +92,8 @@ body.menu-open { overflow: hidden; }
   .s-mnav { height: calc(100dvh - 64px); }
   .s-hdr-cta { display: none; }
   .s-hdr-cta + .s-menu-btn { margin-left: auto; }
-  .s-name { font-size: 1.15rem; }
-  .s-seal { width: 26px; height: 26px; }
+  .s-name { font-size: 1.12rem; }
+  .s-seal { height: 34px; }
 }
 
 /* Hero */
