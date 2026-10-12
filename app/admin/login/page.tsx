@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { login } from "../actions";
+import BrandMark from "@/components/BrandMark";
 
 export default function LoginPage() {
   const [state, action, pending] = useActionState(login, {});
@@ -9,7 +10,7 @@ export default function LoginPage() {
     <main className="login">
       <form className="card" action={action} style={{ display: "grid", gap: 14 }}>
         <div>
-          <div className="brand">Cost Seg <span>Trust</span></div>
+          <div className="brand brand-row"><BrandMark />Cost Seg <span>Trust</span></div>
           <p className="muted small" style={{ margin: "4px 0 0" }}>Admin sign in</p>
         </div>
         <label className="field">Email<input type="email" name="email" autoComplete="username" required defaultValue={state?.email ?? ""} key={state?.email ?? ""} /></label>

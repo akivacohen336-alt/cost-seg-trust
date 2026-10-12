@@ -15,14 +15,28 @@ const fmtDate = (v: Date | string) => (v instanceof Date ? v.toISOString() : Str
 const dueText = (d: Date) =>
   d.toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: "America/New_York", timeZoneName: "short" });
 
-/** Property facts a supplier may see. Never the client's name, email, phone or street address. */
+/**
+ * Only "City, ST" from what the client typed after the street. Digits (unit
+ * and ZIP), emails and anything before the last two parts are dropped, so a
+ * street, unit or name typed into the address box can't reach a supplier.
+ */
+export function supplierLocation(cityState: string | null | undefined): string | null {
+  const parts = (cityState ?? "").split(",").map(p => p.replace(/\S*@\S*/g, "").replace(/\S*[#\d]\S*/g, "").replace(/\s+/g, " ").trim()).filter(Boolean);
+  return parts.length ? parts.slice(-2).join(", ") : null;
+}
+
+/** Land value only when it is a plain amount or percent, never free text. */
+const supplierLandValue = (v: string | null | undefined) =>
+  !v ? "Not provided" : /^[\s$\d.,%~kKmM-]+$/.test(v) ? v.trim() : "Provided after engagement";
+
+/** Property facts a supplier may see. Never the client's name, email, phone, street address or notes. */
 export function supplierFacts(d: any) {
   return [
     ["Property type", d.property_type],
-    ["Location", d.property_city_state || "Provided after engagement"],
+    ["Location", supplierLocation(d.property_city_state) || "Provided after engagement"],
     ["Purchase price", usd(d.purchase_price)],
     ["Placed in service", fmtDate(d.placed_in_service)],
-    ["Land value", d.land_value || "Not provided"],
+    ["Land value", supplierLandValue(d.land_value)],
     ["Renovation spend", d.renovation_spend == null ? "Not provided" : usd(d.renovation_spend)],
     ["Owner has a CPA", d.has_cpa == null ? "Not provided" : d.has_cpa ? "Yes" : "No"],
   ] as [string, string][];
@@ -31,7 +45,7 @@ export function supplierFacts(d: any) {
 async function emailInvite(d: any, supplier: any, token: string, due: Date, kind: "invite" | "reminder") {
   const facts = supplierFacts(d);
   const subject = kind === "invite"
-    ? `Quote request CST-${d.number}: ${d.property_type} in ${d.property_city_state ?? "the US"}`
+    ? `Quote request CST-${d.number}: ${d.property_type} in ${supplierLocation(d.property_city_state) ?? "the US"}`
     : `Reminder: quote request CST-${d.number} is due ${dueText(due)}`;
   const intro = kind === "invite"
     ? `<p style="margin:0 0 12px">Hi ${esc(supplier.contact_name || supplier.company_name)},</p><p style="margin:0 0 12px">Cost Seg Trust has a new cost segregation opportunity and would like your quote. Please respond by <b>${esc(dueText(due))}</b> (${config.quoteWindowHours} hours).</p>`
@@ -60,6 +74,10 @@ export async function sendDealToSuppliers(dealId: string, supplierIds: string[])
   if (unique.length > room) return { invited: 0, skipped: 0, error: `Up to ${config.maxSuppliersPerDeal} suppliers per deal. You can add ${Math.max(room, 0)} more.` };
 
   const suppliers = await sql`select * from suppliers where id = any(${unique}::uuid[]) and active`;
+  // Real suppliers only ever hear about real website requests.
+  if (d.is_test && suppliers.some((s: any) => !s.is_test)) {
+    return { invited: 0, skipped: 0, error: "This is a test deal, so it can only go to test suppliers." };
+  }
   let invited = 0;
   for (const s of suppliers) {
     const token = newToken();
@@ -83,6 +101,7 @@ export async function resendInvite(inviteId: string) {
   const [inv] = await sql`select i.*, s.company_name, s.contact_name, s.email::text as email
                           from supplier_invites i join suppliers s on s.id = i.supplier_id where i.id = ${inviteId}`;
   if (!inv || inv.status === "submitted" || inv.status === "declined") return { ok: false };
+  if (!(await canReach(inv.deal_id, inv.supplier_id))) return { ok: false };
   const token = newToken();
   await sql`update supplier_invites set previous_token_hash = token_hash, token_hash = ${hashToken(token)}, link_sent_count = link_sent_count + 1 where id = ${inviteId}`;
   const d = await loadDeal(inv.deal_id);
@@ -174,6 +193,13 @@ async function afterSupplierResponse(dealId: string, what: string) {
  * Runs the 40-hour clock. Safe to call as often as you like (an hourly
  * scheduler calls it): sends each reminder once, closes each window once.
  */
+/** False when a test deal would reach a real supplier. */
+async function canReach(dealId: string, supplierId: string) {
+  const [r] = await db()`select not (d.is_test and not s.is_test) as ok from deals d, suppliers s
+                         where d.id = ${dealId} and s.id = ${supplierId}`;
+  return !!r?.ok;
+}
+
 export async function runDeadlines(now = new Date()) {
   const sql = db();
   const result = { reminders: 0, expired: 0, closedDeals: 0 };
@@ -184,6 +210,7 @@ export async function runDeadlines(now = new Date()) {
       and invited_at <= ${now}::timestamptz - make_interval(hours => ${config.reminderAfterHours})
     returning i.*`;
   for (const inv of due) {
+    if (!(await canReach(inv.deal_id, inv.supplier_id))) continue;
     const [s] = await sql`select * from suppliers where id = ${inv.supplier_id}`;
     const token = newToken();
     await sql`update supplier_invites set previous_token_hash = token_hash, token_hash = ${hashToken(token)}, link_sent_count = link_sent_count + 1 where id = ${inv.id}`;

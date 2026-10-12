@@ -14,12 +14,13 @@ export default async function DealsPage({ searchParams }: { searchParams: Promis
   const sql = db();
   const deals = await sql`
     select d.id, d.number, d.created_at, d.stage, d.property_type, d.property_address, d.purchase_price,
-           d.utm_source, d.utm_campaign, d.hubspot_sync_status, c.first_name, c.last_name, c.email::text as email
-    from deals d join clients c on c.id = d.client_id
+           d.utm_source, d.utm_campaign, d.hubspot_sync_status, c.first_name, c.last_name, c.email::text as email,
+           p.name as partner_name
+    from deals d join clients c on c.id = d.client_id left join partners p on p.id = d.partner_id
     where (${stage}::deal_stage is null or d.stage = ${stage}::deal_stage)
       and (${type}::text is null or d.property_type = ${type})
       and (${like}::text is null or c.first_name || ' ' || c.last_name ilike ${like} or c.email ilike ${like}
-           or d.property_address ilike ${like} or ('CST-' || d.number) ilike ${like})
+           or d.property_address ilike ${like} or ('CST-' || d.number) ilike ${like} or p.name ilike ${like})
     order by d.created_at desc
     limit 500`;
   const counts = await sql`select stage, count(*)::int as n from deals group by stage`;
@@ -71,7 +72,7 @@ export default async function DealsPage({ searchParams }: { searchParams: Promis
                   <td className="num">{usd(d.purchase_price)}</td>
                   <td><StagePill stage={d.stage} /></td>
                   <td><SyncPill status={d.hubspot_sync_status} /></td>
-                  <td className="small">{[d.utm_source, d.utm_campaign].filter(Boolean).join(" / ") || "Website"}</td>
+                  <td className="small">{d.partner_name ? <>Partner: <b>{d.partner_name}</b></> : [d.utm_source, d.utm_campaign].filter(Boolean).join(" / ") || "Website"}</td>
                 </tr>
               ))}
             </tbody>

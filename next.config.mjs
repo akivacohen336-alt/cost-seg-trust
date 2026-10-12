@@ -1,6 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   poweredByHeader: false,
+  // Client-folder uploads go through a server action (files up to 4 MB).
+  experimental: { serverActions: { bodySizeLimit: "5mb" } },
   async headers() {
     return [{
       source: "/:path*",

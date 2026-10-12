@@ -175,9 +175,9 @@ describe("phase 5: supplier responses", () => {
     expect(q.ai_status).toBe("skipped"); // no PDF, nothing for AI to read
     expect(deferred).toHaveLength(0);
 
-    const owner = fake.state.emails.find(e => e.to[0] === "akivacohen336@gmail.com");
+    const owner = fake.state.emails.find(e => e.to.includes("aron.turen@gmail.com"));
     expect(owner.subject).toBe("CST-1001: Test Supplier A sent a quote ($4,500) (1 of 2 responded)");
-    expect(fake.state.sms[0].To).toBe("+13052191907");
+    expect(fake.state.sms).toHaveLength(0);
 
     const again = await submitForm(t.a, { fee: "1" });
     expect(again.status).toBe(409);
@@ -224,7 +224,7 @@ describe("phase 5: the 40-hour clock", () => {
     expect(await suppliers.runDeadlines()).toEqual({ reminders: 0, expired: 1, closedDeals: 1 });
     expect(await suppliers.runDeadlines()).toEqual({ reminders: 0, expired: 0, closedDeals: 0 });
     expect(await stageOf(dealId)).toBe("quotes_received");
-    expect(fake.state.emails.find(e => e.to[0] === "akivacohen336@gmail.com").subject).toBe("CST-1001: 40-hour window closed, 1 of 2 quotes in");
+    expect(fake.state.emails.find(e => e.to.includes("aron.turen@gmail.com")).subject).toBe("CST-1001: 40-hour window closed, 1 of 2 quotes in");
 
     // A late supplier can still answer an expired invite.
     expect((await submitForm(first.b, { fee: "6100" })).status).toBe(200);
@@ -420,5 +420,49 @@ describe("phase 7: comparison, approval, PDF, client", () => {
   it("refuses to build a comparison with no quotes", async () => {
     const dealId = await newDeal();
     expect(await comparison.buildComparison(dealId)).toEqual({ ok: false, error: "No supplier quotes yet." });
+  });
+});
+
+describe("real suppliers and test deals", () => {
+  it("never sends a test deal, its reminder or a resent link to a real supplier", async () => {
+    const [real] = await sql`insert into suppliers (company_name, email, is_test) values ('Real Co', 'real@example.com', false) returning id`;
+    const dealId = await newDeal();
+    await sql`update deals set is_test = true where id = ${dealId}`;
+    fake.state.emails = [];
+    const r = await suppliers.sendDealToSuppliers(dealId, [real.id, S.a]);
+    expect(r.error).toMatch(/test deal/);
+    expect(fake.state.emails).toHaveLength(0);
+
+    // Even an invite that somehow exists gets no reminder or resent link.
+    const [inv] = await sql`insert into supplier_invites (deal_id, supplier_id, token_hash, invited_at, due_at)
+      values (${dealId}, ${real.id}, 'x', now() - interval '30 hours', now() + interval '10 hours') returning id`;
+    await suppliers.runDeadlines();
+    expect((await suppliers.resendInvite(inv.id)).ok).toBe(false);
+    expect(fake.state.emails.filter((e: any) => e.to.includes("real@example.com"))).toHaveLength(0);
+
+    // Test suppliers still work on a test deal, and real deals can reach real suppliers.
+    expect((await suppliers.sendDealToSuppliers(dealId, [S.a])).invited).toBe(1);
+    const realDeal = await newDeal();
+    expect((await suppliers.sendDealToSuppliers(realDeal, [real.id])).invited).toBe(1);
+  });
+});
+
+describe("what suppliers can see", () => {
+  it("shows only city and state, never a street, unit, ZIP, email or name typed into the address", () => {
+    const loc = suppliers.supplierLocation;
+    expect(loc("Columbus, OH")).toBe("Columbus, OH");
+    expect(loc("Miami, FL 33131")).toBe("Miami, FL");
+    expect(loc("Apt 4B, Miami, FL 33131")).toBe("Miami, FL");
+    expect(loc("John Smith, 22 Oak St, Miami, FL")).toBe("Miami, FL");
+    expect(loc("call 305-555-0142, john@example.com")).toBe("call");
+    expect(loc(null)).toBeNull();
+  });
+  it("hides a land value that isn't a plain amount", () => {
+    const land = (v: string | null) => suppliers.supplierFacts({ property_type: "Office", purchase_price: 1, placed_in_service: "2026-01-01", land_value: v })
+      .find(([k]) => k === "Land value")![1];
+    expect(land("20%")).toBe("20%");
+    expect(land("$400,000")).toBe("$400,000");
+    expect(land("ask John at 305 555 0142")).toBe("Provided after engagement");
+    expect(land(null)).toBe("Not provided");
   });
 });

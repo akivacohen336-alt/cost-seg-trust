@@ -1,5 +1,6 @@
-import { findInvite, markViewed, supplierFacts } from "@/lib/suppliers";
+import { findInvite, markViewed, supplierFacts, supplierLocation } from "@/lib/suppliers";
 import SupplierQuoteForm from "@/components/SupplierQuoteForm";
+import BrandMark from "@/components/BrandMark";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Cost Seg Trust · Quote request", robots: { index: false } };
@@ -10,7 +11,7 @@ const due = (d: Date) =>
 function Shell({ children }: { children: React.ReactNode }) {
   return (
     <>
-      <header className="site-hdr"><div className="wrap"><span className="brand">Cost Seg <span>Trust</span></span><div className="spacer" /><span className="small muted">Supplier quote</span></div></header>
+      <header className="site-hdr"><div className="wrap"><span className="brand brand-row"><BrandMark />Cost Seg <span>Trust</span></span><div className="spacer" /><span className="small muted">Supplier quote</span></div></header>
       <main className="wrap" style={{ maxWidth: 900, paddingBlock: "28px 64px", display: "grid", gap: 18 }}>{children}</main>
     </>
   );
@@ -32,7 +33,7 @@ export default async function SupplierQuotePage({ params }: { params: Promise<{ 
     <Shell>
       <div>
         <p className="small muted" style={{ margin: 0 }}>Private quote link for <b>{invite.company_name}</b> · CST-{deal.number}</p>
-        <h1 style={{ fontSize: "1.6rem", marginTop: 4 }}>Quote request: {deal.property_type}{deal.property_city_state ? ` in ${deal.property_city_state}` : ""}</h1>
+        <h1 style={{ fontSize: "1.6rem", marginTop: 4 }}>Quote request: {deal.property_type}{supplierLocation(deal.property_city_state) ? ` in ${supplierLocation(deal.property_city_state)}` : ""}</h1>
         <p style={{ margin: "8px 0 0" }} className={late ? "" : "muted"}>
           {late ? <b style={{ color: "var(--bad-ink)" }}>The response window closed {due(invite.due_at)}. You can still send your quote and we'll consider it.</b> : <>Please respond by <b>{due(invite.due_at)}</b>.</>}
         </p>
