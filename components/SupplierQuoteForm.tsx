@@ -53,7 +53,8 @@ export default function SupplierQuoteForm({ token }: { token: string }) {
           {num("fee", "Study fee ($)")}
           <label className="field">Study type<select name="studyType" defaultValue=""><option value="">Select</option>{STUDY_TYPES.map(t => <option key={t}>{t}</option>)}</select></label>
           {yesNo("siteVisit", "In-person site visit included")}
-          {num("turnaroundDays", "Turnaround (days)")}
+          {num("turnaroundDays", "Turnaround (days)", "shortest, if a range")}
+          {num("turnaroundDaysHigh", "Longest turnaround (days)", "only if you give a range")}
           {num("depreciableBasis", "Depreciable basis used ($)")}
           {num("regularDepreciation", "Year-1 depreciation without a study ($)", "straight-line")}
           {num("firstYearDeduction", "Year-1 depreciation with the study ($)", "accelerated, incl. bonus; conservative, if a range")}
@@ -69,6 +70,7 @@ export default function SupplierQuoteForm({ token }: { token: string }) {
           <label className="field">Scope of work<input type="text" name="scopeOfWork" placeholder="e.g. Engineering-based study, on-site inspection, report and CPA review" /></label>
           <label className="field">Audit support<input type="text" name="auditSupport" placeholder="e.g. Full audit defense included" /></label>
           {yesNo("includesLookback", "Look-back / Form 3115 included")}
+          <label className="field">Form 3115 note <span className="opt">optional</span><input type="text" name="lookbackNote" placeholder="e.g. Not needed, placed in service this year" /></label>
           <label className="field">Payment terms<input type="text" name="paymentTerms" placeholder="e.g. 50% upfront, 50% on delivery" /></label>
           {num("validDays", "Quote valid for (days)")}
         </div>

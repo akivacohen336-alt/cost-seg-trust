@@ -20,6 +20,7 @@ const quoteSchema = z.object({
   studyType: z.preprocess(v => (v ? v : null), z.enum(STUDY_TYPES).nullable()),
   siteVisit: optBool,
   turnaroundDays: optNum(3650),
+  turnaroundDaysHigh: optNum(3650),
   reclassifiedPct: optNum(100),
   reclassifiedPctHigh: optNum(100),
   depreciableBasis: optNum(10_000_000_000),
@@ -36,6 +37,7 @@ const quoteSchema = z.object({
   scopeOfWork: optText,
   auditSupport: optText,
   includesLookback: optBool,
+  lookbackNote: optText,
   paymentTerms: optText,
   validDays: optNum(3650),
 });

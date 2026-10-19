@@ -19,7 +19,8 @@ export const StandardQuoteSchema = z.object({
   fee: num.describe("Total study fee in US dollars"),
   studyType: z.enum(STUDY_TYPES).nullable(),
   siteVisit: z.boolean().nullable().describe("True if an in-person, on-site inspection is included; false if virtual or none"),
-  turnaroundDays: num.describe("Delivery time in calendar days (convert weeks to days)"),
+  turnaroundDays: num.describe("Delivery time in calendar days (convert weeks to days); the shortest if a range is given"),
+  turnaroundDaysHigh: num.describe("Longest delivery time in calendar days, only if the provider gives a range"),
   reclassifiedPct: num.describe("Percent of depreciable basis reclassified to 5/7/15-year property, 0-100; the conservative figure if a range is given"),
   reclassifiedPctHigh: num.describe("High end of the percent reclassified, only if the provider gives a range"),
   depreciableBasis: num.describe("Depreciable basis (building cost, excluding land) the estimate is based on, in US dollars"),
@@ -36,6 +37,7 @@ export const StandardQuoteSchema = z.object({
   scopeOfWork: z.string().nullable().describe("What the study includes, in under 25 words: method (engineering-based, purchase price allocation, desktop), inspection, report, CPA review, delivery time"),
   auditSupport: z.string().nullable().describe("Audit support terms in under 10 words"),
   includesLookback: z.boolean().nullable().describe("True if a look-back study / Form 3115 support is included"),
+  lookbackNote: z.string().nullable().describe("Only if the provider says why Form 3115 / look-back is or isn't needed, in under 10 words, e.g. 'Not needed (placed in service in 2026)'"),
   paymentTerms: z.string().nullable().describe("Payment terms in under 10 words"),
   validDays: num.describe("How many days the quote stays valid"),
   inclusions: z.array(z.string()).describe("Notable inclusions, each under 12 words"),
@@ -87,7 +89,7 @@ export async function extractStandardQuote(input: {
   return res.parsed_output;
 }
 
-const NUMERIC: QuoteKey[] = ["fee", "turnaroundDays", "depreciableBasis", "regularDepreciation", "reclassifiedPct", "reclassifiedPctHigh", "firstYearDeduction", "firstYearDeductionHigh",
+const NUMERIC: QuoteKey[] = ["fee", "turnaroundDays", "turnaroundDaysHigh", "depreciableBasis", "regularDepreciation", "reclassifiedPct", "reclassifiedPctHigh", "firstYearDeduction", "firstYearDeductionHigh",
   "increasedDeduction", "increasedDeductionHigh", "acceleratedAmount", "firstYearTaxSavings", "firstYearTaxSavingsHigh", "assumedTaxRate", "validDays"];
 
 /**

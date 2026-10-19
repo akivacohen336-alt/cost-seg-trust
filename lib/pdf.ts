@@ -39,6 +39,17 @@ function wrap(text: string, font: PDFFont, size: number, width: number, maxLines
   return lines.length ? lines : [""];
 }
 
+const GREEN_MEANS: Record<string, string> = {
+  fee: "the lowest cost of service", savingsPerDollar: "the highest tax benefit per $1 of fee", turnaroundDays: "the fastest turnaround",
+};
+/** Says only what is actually green on this page. */
+function greenNote(keys: string[]) {
+  const parts = keys.map(k => GREEN_MEANS[k]).filter(Boolean);
+  if (!parts.length) return "";
+  const list = parts.length === 1 ? parts[0] : `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}`;
+  return `Green marks ${list}. Other rows are not ranked.`;
+}
+
 // Footnote type: the smallest text on the page, still readable in print.
 const FOOT = 8.5, FOOT_LH = 11;
 const SUPERSCRIPT = ["\u00b9", "\u00b2", "\u00b3"];
@@ -91,7 +102,7 @@ export async function renderComparisonPdf(view: ComparisonView): Promise<Uint8Ar
   const notes = [...new Set(rows.map(r => r.note).filter((n): n is string => !!n))];
   const mark = (r: (typeof rows)[number]) => (r.note ? ` ${SUPERSCRIPT[notes.indexOf(r.note)] ?? ""}` : "");
   const footLines = [
-    rows.some(r => r.best) ? "Green marks the lowest cost of service, the highest tax benefit per $1 of fee and the fastest turnaround. Other rows are not ranked." : "",
+    greenNote(rows.filter(r => r.best && view.best[r.key] !== undefined).map(r => r.key)),
     ...notes.map((n, i) => `${SUPERSCRIPT[i]} ${n}`),
     cols.some(c => c.calculated.some(k => rows.some(r => r.key === k))) ? "* Added up or divided from that provider's own figures; nothing estimated." : "",
   ].filter(Boolean).flatMap(l => wrap(l, reg, FOOT, W - 2 * M, 3));

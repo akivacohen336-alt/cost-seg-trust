@@ -12,6 +12,7 @@ export const QUOTE_FIELDS = [
   { key: "studyType", label: "Study type", kind: "study", column: "study_type" },
   { key: "siteVisit", label: "In-person site visit", kind: "bool", column: "site_visit" },
   { key: "turnaroundDays", label: "Turnaround (days)", kind: "int", column: "turnaround_days" },
+  { key: "turnaroundDaysHigh", label: "Turnaround, longest (days, if a range)", kind: "int", column: "turnaround_days_high" },
   { key: "depreciableBasis", label: "Depreciable basis used", kind: "money", column: "depreciable_basis" },
   { key: "regularDepreciation", label: "First-year regular depreciation (without a study)", kind: "money", column: "regular_first_year_depreciation" },
   { key: "firstYearDeduction", label: "First-year accelerated depreciation (with the study)", kind: "money", column: "est_first_year_deduction" },
@@ -28,6 +29,7 @@ export const QUOTE_FIELDS = [
   { key: "scopeOfWork", label: "Scope of work", kind: "text", column: "scope_of_work" },
   { key: "auditSupport", label: "Audit support", kind: "text", column: "audit_support" },
   { key: "includesLookback", label: "Look-back / Form 3115 included", kind: "bool", column: "includes_lookback" },
+  { key: "lookbackNote", label: "Look-back / Form 3115 note (e.g. not needed)", kind: "text", column: "lookback_note" },
   { key: "paymentTerms", label: "Payment terms", kind: "text", column: "payment_terms" },
   { key: "validDays", label: "Quote valid for (days)", kind: "int", column: "valid_days" },
 ] as const satisfies readonly { key: string; label: string; kind: QuoteFieldKind; column: string }[];
@@ -69,7 +71,8 @@ export function formatValue(v: unknown, kind: string): string {
   switch (kind) {
     case "money": return "$" + Math.round(Number(v)).toLocaleString("en-US");
     case "pct": return `${Number(v).toFixed(Number(v) % 1 ? 1 : 0)}%`;
-    case "days": case "int": return kind === "days" ? `${v} days` : String(v);
+    case "days": return Number(v) % 7 === 0 ? `${Number(v) / 7} weeks` : `${v} days`;
+    case "int": return String(v);
     case "bool": return v === true ? "Yes" : v === false ? "No" : "—";
     case "ratio": return "$" + Number(v).toFixed(1);
     default: return String(v);
@@ -97,18 +100,22 @@ export const savingsPerDollarHigh = (v: QuoteValues) => {
 };
 export const withRatios = <T extends QuoteValues>(v: T) => ({ ...v, savingsPerDollar: savingsPerDollar(v), savingsPerDollarHigh: savingsPerDollarHigh(v) });
 
-const TOTAL_NOTE = "tax on all year-1 depreciation; regular portion not stated";
+const TOTAL_NOTE = "tax on all year-1 depreciation, regular depreciation included";
 /** Rows a provider may give as a conservative-to-high range, and where the high end is kept. */
 export const HIGH_END: Record<string, QuoteKey> = {
   firstYearTaxSavings: "firstYearTaxSavingsHigh", firstYearDeduction: "firstYearDeductionHigh",
   increasedDeduction: "increasedDeductionHigh", reclassifiedPct: "reclassifiedPctHigh",
+  turnaroundDays: "turnaroundDaysHigh",
 };
 
 /** The text a comparison cell shows: "low – high" when the provider gave a range, plus the tax-benefit caveat. Empty is "—". */
 export function cellText(values: Record<string, any>, row: { key: string; kind: string }): string {
   const v = values[row.key];
   const high = HIGH_END[row.key] ? values[HIGH_END[row.key]] : null;
-  const range = v != null && high > v ? `${formatValue(v, row.kind)} – ${formatValue(high, row.kind)}` : formatValue(v, row.kind);
+  const weeks = row.kind === "days" && Number(v) % 7 === 0 && Number(high) % 7 === 0;
+  const range = v == null || !(high > v) ? formatValue(v, row.kind)
+    : weeks ? `${Number(v) / 7} to ${Number(high) / 7} weeks` : `${formatValue(v, row.kind)} – ${formatValue(high, row.kind)}`;
+  if (row.key === "includesLookback" && values.lookbackNote) return String(values.lookbackNote);
   if (row.key === "firstYearTaxSavings") {
     if (v == null) return "—";
     return values.taxBenefitOn === "total" ? `${range} (${TOTAL_NOTE})` : range;
@@ -123,24 +130,23 @@ export function cellText(values: Record<string, any>, row: { key: string; kind: 
 
 /**
  * The winning value of each ranked row. A provider wins only if it beats every
- * other provider even at their best (high end of a range); otherwise the row
- * has no winner. Benefits that include regular depreciation never compete.
+ * other provider outright, range against range (a tie has no winner).
+ * Benefits that include regular depreciation never compete.
  */
 export function bestValues(columns: { values: Record<string, any> }[], rows: { key: string; best?: "min" | "max" }[]) {
   const best: Record<string, number> = {};
   for (const r of rows) {
     if (!r.best) continue;
-    const highKey = r.key === "savingsPerDollar" ? "savingsPerDollarHigh" : null;
+    const highKey = r.key === "savingsPerDollar" ? "savingsPerDollarHigh" : HIGH_END[r.key] ?? null;
     const vals = columns.map(c => {
       const low = Number(c.values[r.key]);
       const high = highKey && Number(c.values[highKey]) > low ? Number(c.values[highKey]) : low;
       return { low, high };
     }).filter(x => isFinite(x.low) && x.low > 0);
     if (vals.length < 2) continue;
-    if (r.best === "min") {
-      best[r.key] = Math.min(...vals.map(x => x.low));
-    } else {
-      for (const x of vals) if (vals.every(o => o === x || x.low > o.high)) best[r.key] = x.low;
+    for (const x of vals) {
+      const wins = vals.every(o => o === x || (r.best === "min" ? x.high < o.low : x.low > o.high));
+      if (wins) best[r.key] = x.low;
     }
   }
   return best;

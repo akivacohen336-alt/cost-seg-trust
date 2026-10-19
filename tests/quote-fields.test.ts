@@ -36,7 +36,7 @@ describe("tax benefits on the one-pager are only compared when they are comparab
 
   it("shows a range, and labels a benefit that includes regular depreciation", () => {
     expect(cellText(cssi, row("firstYearTaxSavings"))).toBe("$567,528 – $920,785");
-    expect(cellText(segpro, row("firstYearTaxSavings"))).toBe("$820,827 (tax on all year-1 depreciation; regular portion not stated)");
+    expect(cellText(segpro, row("firstYearTaxSavings"))).toBe("$820,827 (tax on all year-1 depreciation, regular depreciation included)");
     expect(cellText(cssi, row("savingsPerDollar"))).toBe("$66.4 – $107.7");
     expect(cellText(segpro, row("savingsPerDollar"))).toBe("Not comparable (benefit includes regular depreciation)");
   });
@@ -51,5 +51,20 @@ describe("tax benefits on the one-pager are only compared when they are comparab
     expect(bestValues([{ values: sta }, { values: cssiPortfolio }], COMPARISON_ROWS).savingsPerDollar).toBeCloseTo(102.28, 1);
     const close = withRatios({ fee: 38_000, firstYearTaxSavings: 2_103_248, firstYearTaxSavingsHigh: 4_500_000, taxBenefitOn: "extra" as const });
     expect(bestValues([{ values: sta }, { values: close }], COMPARISON_ROWS).savingsPerDollar).toBeUndefined();
+  });
+});
+
+describe("turnaround and Form 3115", () => {
+  const row = (k: string) => COMPARISON_ROWS.find(r => r.key === k)!;
+  it("shows a delivery range in weeks and only greens a provider that is faster outright", () => {
+    const cssi = { turnaroundDays: 28, turnaroundDaysHigh: 42 }, segpro = { turnaroundDays: 28 };
+    expect(cellText(cssi, row("turnaroundDays"))).toBe("4 to 6 weeks");
+    expect(cellText(segpro, row("turnaroundDays"))).toBe("4 weeks");
+    expect(bestValues([{ values: cssi }, { values: segpro }], COMPARISON_ROWS).turnaroundDays).toBeUndefined();
+    expect(bestValues([{ values: cssi }, { values: { turnaroundDays: 21 } }], COMPARISON_ROWS).turnaroundDays).toBe(21);
+  });
+  it("shows the provider's own reason when Form 3115 is not needed", () => {
+    expect(cellText({ lookbackNote: "Not needed (placed in service in 2026)" }, row("includesLookback"))).toBe("Not needed (placed in service in 2026)");
+    expect(cellText({ includesLookback: true }, row("includesLookback"))).toBe("Yes");
   });
 });
