@@ -49,6 +49,10 @@ export const MIGRATIONS: { name: string; sql: string }[] = [
     "sql": "-- A provider may give a range (conservative to high end), and may figure its\n-- tax benefit on the extra deduction from the study or on all year-1\n-- depreciation. Only the first kind can be compared across providers.\nalter table supplier_quotes add column if not exists est_first_year_tax_savings_high numeric(14,2);\nalter table supplier_quotes add column if not exists tax_benefit_on text check (tax_benefit_on in ('extra','total'));\n"
   },
   {
+    "name": "013_range_high_ends.sql",
+    "sql": "-- A provider that gives a conservative-to-high range does so for its\n-- deduction and percent too, not only the tax benefit. Keeping both ends lets\n-- every figure in a range be checked against the same column of its table.\nalter table supplier_quotes add column if not exists est_first_year_deduction_high numeric(14,2);\nalter table supplier_quotes add column if not exists increased_deduction_high numeric(14,2);\nalter table supplier_quotes add column if not exists reclassified_pct_high numeric(5,2);\n"
+  },
+  {
     "name": "seed_test_suppliers.sql",
     "sql": "-- Test suppliers for safe end-to-end testing. Their emails use \"+\" addressing,\n-- so anything \"sent to a supplier\" lands in the owner's own Gmail inbox.\n-- Real suppliers are added later from the admin Suppliers page.\ninsert into suppliers (company_name, contact_name, email, description, is_test) values\n  ('Test Supplier A', 'Test Contact A', 'akivacohen336+supplier-a@gmail.com', 'Test only: full engineering studies', true),\n  ('Test Supplier B', 'Test Contact B', 'akivacohen336+supplier-b@gmail.com', 'Test only: desktop studies', true),\n  ('Test Supplier C', 'Test Contact C', 'akivacohen336+supplier-c@gmail.com', 'Test only: residential and STR', true)\non conflict (email) do nothing;\n"
   }

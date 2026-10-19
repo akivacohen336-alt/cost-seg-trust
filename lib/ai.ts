@@ -20,11 +20,14 @@ export const StandardQuoteSchema = z.object({
   studyType: z.enum(STUDY_TYPES).nullable(),
   siteVisit: z.boolean().nullable().describe("True if an in-person, on-site inspection is included; false if virtual or none"),
   turnaroundDays: num.describe("Delivery time in calendar days (convert weeks to days)"),
-  reclassifiedPct: num.describe("Percent of depreciable basis reclassified to 5/7/15-year property, 0-100"),
+  reclassifiedPct: num.describe("Percent of depreciable basis reclassified to 5/7/15-year property, 0-100; the conservative figure if a range is given"),
+  reclassifiedPctHigh: num.describe("High end of the percent reclassified, only if the provider gives a range"),
   depreciableBasis: num.describe("Depreciable basis (building cost, excluding land) the estimate is based on, in US dollars"),
   regularDepreciation: num.describe("First-year depreciation WITHOUT a study (straight-line only), in US dollars"),
-  firstYearDeduction: num.describe("Total first-year depreciation WITH the study (accelerated method, bonus included), in US dollars"),
-  increasedDeduction: num.describe("Extra first-year deduction from the study: with-study depreciation minus straight-line depreciation, in US dollars. Null if the provider's 'increased' figure simply equals its total first-year depreciation"),
+  firstYearDeduction: num.describe("Total first-year depreciation WITH the study (accelerated method, bonus included), in US dollars; the conservative figure if a range is given"),
+  firstYearDeductionHigh: num.describe("High end of first-year depreciation with the study, only if the provider gives a range"),
+  increasedDeduction: num.describe("Extra first-year deduction from the study: with-study depreciation minus straight-line depreciation, in US dollars. Null if the provider's 'increased' figure simply equals its total first-year depreciation. The conservative figure if a range is given"),
+  increasedDeductionHigh: num.describe("High end of the extra first-year deduction, only if the provider gives a range"),
   acceleratedAmount: num.describe("Total dollars of basis reclassified to 5, 7 and 15-year property"),
   firstYearTaxSavings: num.describe("Estimated first-year tax savings in US dollars; the conservative figure if a range is given"),
   firstYearTaxSavingsHigh: num.describe("High end of the first-year tax savings, only if the provider gives a range"),
@@ -50,7 +53,7 @@ Rules:
 - Where the form and the PDF disagree, report what the PDF says; the app compares the two and flags differences for review.
 - Money is a plain number of US dollars (no symbols). Percentages are 0-100.
 - Keep the short text fields brief and neutral.
-- When the provider gives a range (conservative and high end), use the conservative figures and mention the high end in caveats.
+- When the provider gives a range (conservative and high end), put the conservative figures in the main fields and the high-end figures in the matching ...High fields.
 - When the proposal covers several properties, use the portfolio totals.`;
 
 function describeFormValues(v: QuoteValues, comments: string | null) {
@@ -84,8 +87,8 @@ export async function extractStandardQuote(input: {
   return res.parsed_output;
 }
 
-const NUMERIC: QuoteKey[] = ["fee", "turnaroundDays", "depreciableBasis", "regularDepreciation", "reclassifiedPct", "firstYearDeduction",
-  "increasedDeduction", "acceleratedAmount", "firstYearTaxSavings", "firstYearTaxSavingsHigh", "assumedTaxRate", "validDays"];
+const NUMERIC: QuoteKey[] = ["fee", "turnaroundDays", "depreciableBasis", "regularDepreciation", "reclassifiedPct", "reclassifiedPctHigh", "firstYearDeduction", "firstYearDeductionHigh",
+  "increasedDeduction", "increasedDeductionHigh", "acceleratedAmount", "firstYearTaxSavings", "firstYearTaxSavingsHigh", "assumedTaxRate", "validDays"];
 
 /**
  * Combines what the supplier typed with what the AI read. The supplier's own

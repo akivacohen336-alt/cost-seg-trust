@@ -56,9 +56,11 @@ export default function SupplierQuoteForm({ token }: { token: string }) {
           {num("turnaroundDays", "Turnaround (days)")}
           {num("depreciableBasis", "Depreciable basis used ($)")}
           {num("regularDepreciation", "Year-1 depreciation without a study ($)", "straight-line")}
-          {num("firstYearDeduction", "Year-1 depreciation with the study ($)", "accelerated, incl. bonus")}
+          {num("firstYearDeduction", "Year-1 depreciation with the study ($)", "accelerated, incl. bonus; conservative, if a range")}
+          {num("firstYearDeductionHigh", "High end of year-1 depreciation with the study ($)", "only if you give a range")}
           {num("acceleratedAmount", "Total moved to 5, 7 and 15-year ($)")}
-          {num("reclassifiedPct", "% of basis reclassified")}
+          {num("reclassifiedPct", "% of basis reclassified", "conservative, if a range")}
+          {num("reclassifiedPctHigh", "High end of % reclassified", "only if you give a range")}
           {num("firstYearTaxSavings", "Est. first-year tax benefit ($)", "conservative, if a range")}
           {num("firstYearTaxSavingsHigh", "High end of the tax benefit ($)", "only if you give a range")}
           <label className="field">The tax benefit is figured on<select name="taxBenefitOn" defaultValue=""><option value="">Select</option>

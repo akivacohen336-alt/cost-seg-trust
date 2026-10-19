@@ -6,7 +6,7 @@ import { cellText, formatValue } from "./quote-fields";
 const NAVY = rgb(15 / 255, 42 / 255, 68 / 255);
 const GREEN = rgb(16 / 255, 185 / 255, 129 / 255);
 const INK = rgb(31 / 255, 41 / 255, 55 / 255);
-const MUTED = rgb(107 / 255, 114 / 255, 128 / 255);
+const MUTED = rgb(75 / 255, 85 / 255, 99 / 255);
 const LINE = rgb(221 / 255, 227 / 255, 234 / 255);
 const HEAD_BG = rgb(232 / 255, 238 / 255, 244 / 255);
 const ZEBRA = rgb(247 / 255, 249 / 255, 251 / 255);
@@ -39,6 +39,8 @@ function wrap(text: string, font: PDFFont, size: number, width: number, maxLines
   return lines.length ? lines : [""];
 }
 
+// Footnote type: the smallest text on the page, still readable in print.
+const FOOT = 8.5, FOOT_LH = 11;
 const SUPERSCRIPT = ["\u00b9", "\u00b2", "\u00b3"];
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const longDate = (v: unknown) => {
@@ -77,7 +79,7 @@ export async function renderComparisonPdf(view: ComparisonView): Promise<Uint8Ar
   // until the table and summary fit on the one page.
   const cols = view.columns;
   const n = Math.max(cols.length, 1);
-  const labelW = 170, colW = (W - 2 * M - labelW) / n;
+  const labelW = 190, colW = (W - 2 * M - labelW) / n;
   const rows = view.rows.filter(r => cols.some(c => cellText(c.values as any, r) !== "—"));
   const cell = (c: (typeof cols)[number], r: (typeof rows)[number]) => {
     const v = cellText(c.values as any, r);
@@ -90,14 +92,14 @@ export async function renderComparisonPdf(view: ComparisonView): Promise<Uint8Ar
     rows.some(r => r.best) ? "Green marks the lowest cost of service, the highest tax benefit per $1 of fee and the fastest turnaround. Other rows are not ranked." : "",
     ...notes.map((n, i) => `${SUPERSCRIPT[i]} ${n}`),
     cols.some(c => c.calculated.some(k => rows.some(r => r.key === k))) ? "* Added up or divided from that provider's own figures; nothing estimated." : "",
-  ].filter(Boolean).flatMap(l => wrap(l, reg, 7.5, W - 2 * M, 2));
+  ].filter(Boolean).flatMap(l => wrap(l, reg, FOOT, W - 2 * M, 3));
   const summary = String(view.comparison.summary || "").trim();
   const layout = (size: number) => {
-    const lh = size + 2.5, pad = size > 8 ? 6 : 4;
+    const lh = size + 2.2, pad = 3.5;
     const headLines = cols.map(c => wrap(c.name, bold, size, colW - 2 * pad, 2));
     const headH = Math.max(1, ...headLines.map(l => l.length)) * lh + 2 * pad;
     const body = rows.map(r => {
-      const lines = cols.map(c => wrap(cell(c, r), reg, size, colW - 2 * pad, 3));
+      const lines = cols.map(c => wrap(cell(c, r), reg, size, colW - 2 * pad, 6));
       const labelLines = wrap(r.label + mark(r), bold, size, labelW - 2 * pad, 2);
       return { r, lines, labelLines, h: Math.max(labelLines.length, ...lines.map(l => l.length)) * lh + 2 * pad - 2 };
     });
@@ -106,10 +108,12 @@ export async function renderComparisonPdf(view: ComparisonView): Promise<Uint8Ar
     const total = headH + body.reduce((a, b) => a + b.h, 0) + 22 + 26 + sLines.length * (sSize + 4);
     return { size, lh, pad, headLines, headH, body, sSize, sLines, total };
   };
-  const room = (H - 98) - 60 - footLines.length * 9;
-  const base = n > 6 ? 7.5 : n > 4 ? 8.5 : 9.5;
+  const room = (H - 98) - 56 - footLines.length * FOOT_LH;
+  // Never below 8.5pt, so it reads on a laptop and on paper; a table too long
+  // for that moves the summary to a second page rather than shrinking further.
+  const base = n > 6 ? 9 : 10;
   let L = layout(base);
-  for (let s = base - 0.5; L.total > room && s >= 6.5; s -= 0.5) L = layout(s);
+  for (let s = base - 0.5; L.total > room && s >= 8.5; s -= 0.5) L = layout(s);
   const { size, lh, pad } = L;
   let y = H - 98;
 
@@ -133,16 +137,17 @@ export async function renderComparisonPdf(view: ComparisonView): Promise<Uint8Ar
   // Summary
   y -= 22;
   const { sLines, sSize } = L, sl = sSize + 4;
-  if (y - 20 - sLines.length * sl < 50) { page = doc.addPage([W, H]); y = H - 50; }
+  const footTop = 50 + footLines.length * FOOT_LH + 6;
+  if (y - 18 - (sLines.length - 1) * sl - 6 < footTop) { page = doc.addPage([W, H]); y = H - 50; }
   page.drawRectangle({ x: M, y: y - 8 - sLines.length * sl, width: 3, height: 22 + sLines.length * sl, color: GREEN });
   text(page, "Summary", M + 12, y, 11.5, bold, NAVY);
   sLines.forEach((l, i) => text(page, l, M + 12, y - 18 - i * sl, sSize, reg));
-  footLines.forEach((l, i) => text(page, l, M, 48 + (footLines.length - 1 - i) * 9, 7.5, reg, MUTED));
+  footLines.forEach((l, i) => text(page, l, M, 50 + (footLines.length - 1 - i) * FOOT_LH, FOOT, reg, MUTED));
 
   // Footer on every page
   for (const p of doc.getPages()) {
-    const foot = wrap("Estimates are provided by each cost segregation provider and are not guarantees. Tax savings depend on your situation; please confirm with your CPA. This comparison is not tax, legal or accounting advice.", reg, 7.5, W - 2 * M, 2);
-    foot.forEach((l, i) => text(p, l, M, 32 - i * 10, 7.5, reg, MUTED));
+    const foot = wrap("Estimates are provided by each cost segregation provider and are not guarantees. Tax savings depend on your situation; please confirm with your CPA. This comparison is not tax, legal or accounting advice.", reg, FOOT, W - 2 * M, 2);
+    foot.forEach((l, i) => text(p, l, M, 32 - i * FOOT_LH, FOOT, reg, MUTED));
   }
   return doc.save();
 }

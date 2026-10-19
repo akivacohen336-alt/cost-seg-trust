@@ -15,9 +15,12 @@ export const QUOTE_FIELDS = [
   { key: "depreciableBasis", label: "Depreciable basis used", kind: "money", column: "depreciable_basis" },
   { key: "regularDepreciation", label: "First-year regular depreciation (without a study)", kind: "money", column: "regular_first_year_depreciation" },
   { key: "firstYearDeduction", label: "First-year accelerated depreciation (with the study)", kind: "money", column: "est_first_year_deduction" },
+  { key: "firstYearDeductionHigh", label: "First-year accelerated depreciation, high end (if a range)", kind: "money", column: "est_first_year_deduction_high" },
   { key: "increasedDeduction", label: "Extra first-year deduction from the study", kind: "money", column: "increased_deduction" },
+  { key: "increasedDeductionHigh", label: "Extra first-year deduction, high end (if a range)", kind: "money", column: "increased_deduction_high" },
   { key: "acceleratedAmount", label: "Total moved to 5, 7 and 15-year property", kind: "money", column: "accelerated_amount" },
   { key: "reclassifiedPct", label: "% of basis reclassified", kind: "pct", column: "reclassified_pct" },
+  { key: "reclassifiedPctHigh", label: "% of basis reclassified, high end (if a range)", kind: "pct", column: "reclassified_pct_high" },
   { key: "firstYearTaxSavings", label: "First-year tax benefit", kind: "money", column: "est_first_year_tax_savings" },
   { key: "firstYearTaxSavingsHigh", label: "First-year tax benefit, high end (if a range)", kind: "money", column: "est_first_year_tax_savings_high" },
   { key: "taxBenefitOn", label: "Tax benefit is figured on", kind: "benefitOn", column: "tax_benefit_on" },
@@ -43,7 +46,7 @@ export const BASIS_NOTE = "Each provider's own estimate, on its own depreciable 
 export const YEAR1_NOTE = "With 100% bonus, year-1 depreciation with the study = basis moved to 5, 7 and 15-year property + regular depreciation on the rest.";
 export const COMPARISON_ROWS: ComparisonRow[] = [
   { key: "firstYearTaxSavings", label: "First-year tax benefit", kind: "money", note: BASIS_NOTE },
-  { key: "regularDepreciation", label: "Regular depreciation (year 1, without a study)", kind: "money" },
+  { key: "regularDepreciation", label: "Regular depreciation, year 1 (no study)", kind: "money" },
   { key: "firstYearDeduction", label: "Total year-1 depreciation with the study", kind: "money", note: YEAR1_NOTE },
   { key: "fee", label: "Cost of service", kind: "money", best: "min" },
   { key: "scopeOfWork", label: "Scope of work", kind: "text" },
@@ -95,13 +98,19 @@ export const savingsPerDollarHigh = (v: QuoteValues) => {
 export const withRatios = <T extends QuoteValues>(v: T) => ({ ...v, savingsPerDollar: savingsPerDollar(v), savingsPerDollarHigh: savingsPerDollarHigh(v) });
 
 const TOTAL_NOTE = "tax on all year-1 depreciation; regular portion not stated";
+/** Rows a provider may give as a conservative-to-high range, and where the high end is kept. */
+export const HIGH_END: Record<string, QuoteKey> = {
+  firstYearTaxSavings: "firstYearTaxSavingsHigh", firstYearDeduction: "firstYearDeductionHigh",
+  increasedDeduction: "increasedDeductionHigh", reclassifiedPct: "reclassifiedPctHigh",
+};
 
-/** The text a comparison cell shows, with ranges and the tax-benefit caveat. Empty is "—". */
+/** The text a comparison cell shows: "low – high" when the provider gave a range, plus the tax-benefit caveat. Empty is "—". */
 export function cellText(values: Record<string, any>, row: { key: string; kind: string }): string {
   const v = values[row.key];
+  const high = HIGH_END[row.key] ? values[HIGH_END[row.key]] : null;
+  const range = v != null && high > v ? `${formatValue(v, row.kind)} – ${formatValue(high, row.kind)}` : formatValue(v, row.kind);
   if (row.key === "firstYearTaxSavings") {
     if (v == null) return "—";
-    const range = values.firstYearTaxSavingsHigh > v ? `${formatValue(v, "money")} – ${formatValue(values.firstYearTaxSavingsHigh, "money")}` : formatValue(v, "money");
     return values.taxBenefitOn === "total" ? `${range} (${TOTAL_NOTE})` : range;
   }
   if (row.key === "savingsPerDollar") {
@@ -109,7 +118,7 @@ export function cellText(values: Record<string, any>, row: { key: string; kind: 
     if (v == null) return "—";
     return values.savingsPerDollarHigh > v ? `${formatValue(v, "ratio")} – ${formatValue(values.savingsPerDollarHigh, "ratio")}` : formatValue(v, "ratio");
   }
-  return formatValue(v, row.kind);
+  return range;
 }
 
 /**
@@ -158,6 +167,11 @@ export function deriveValues(v: QuoteValues) {
   }
   if (!has(out.increasedDeduction) && has(out.firstYearDeduction) && has(out.regularDepreciation)) {
     set("increasedDeduction", Number(out.firstYearDeduction) - Number(out.regularDepreciation));
+  }
+  if (has(out.regularDepreciation)) {
+    const reg = Number(out.regularDepreciation);
+    if (!has(out.increasedDeductionHigh) && Number(out.firstYearDeductionHigh) > reg) set("increasedDeductionHigh", Number(out.firstYearDeductionHigh) - reg);
+    if (!has(out.firstYearDeductionHigh) && has(out.increasedDeductionHigh)) set("firstYearDeductionHigh", reg + Number(out.increasedDeductionHigh));
   }
   if (!has(out.reclassifiedPct) && has(out.acceleratedAmount) && Number(out.depreciableBasis) > 0) {
     set("reclassifiedPct", Number(out.acceleratedAmount) / Number(out.depreciableBasis) * 100);
