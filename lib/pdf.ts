@@ -117,7 +117,7 @@ export async function renderComparisonPdf(view: ComparisonView): Promise<Uint8Ar
   page.drawRectangle({ x: M, y: y - 8 - sLines.length * sl, width: 3, height: 22 + sLines.length * sl, color: GREEN });
   text(page, "Summary", M + 12, y, 11.5, bold, NAVY);
   sLines.forEach((l, i) => text(page, l, M + 12, y - 18 - i * sl, sSize, reg));
-  const calcNote = cols.some(c => c.calculated.length) ? "  * Calculated by Cost Seg Trust from the provider's own figures (straight-line uses the mid-month convention)." : "";
+  const calcNote = cols.some(c => c.calculated.length) ? "  * Simple arithmetic on that provider's own figures (for example basis x percent)." : "";
   text(page, "Green marks the best value in each row." + calcNote, M, 48, 7.5, reg, MUTED);
 
   // Footer on every page

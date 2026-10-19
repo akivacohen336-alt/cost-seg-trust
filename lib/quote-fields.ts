@@ -79,39 +79,21 @@ export const savingsPerDollar = (v: QuoteValues) => {
   return fee > 0 && sav > 0 ? sav / fee : null;
 };
 
-/** What the deal tells us for working out regular (straight-line) depreciation. */
-export type StraightLineContext = { lifeYears: number; inServiceMonth: number } | null;
-
-export function straightLineContext(deal: { property_type?: string | null; placed_in_service?: unknown }): StraightLineContext {
-  if (deal.placed_in_service == null) return null;
-  const iso = deal.placed_in_service instanceof Date ? deal.placed_in_service.toISOString() : String(deal.placed_in_service);
-  const month = Number(iso.slice(5, 7));
-  if (!(month >= 1 && month <= 12)) return null;
-  // Long-term residential rentals are 27.5-year property; everything else,
-  // short-term rentals included, is 39-year.
-  const residential = /^(single-family rental|multifamily)$/i.test(deal.property_type ?? "");
-  return { lifeYears: residential ? 27.5 : 39, inServiceMonth: month };
-}
-
 const has = (v: unknown) => v != null && v !== "" && isFinite(Number(v));
 
 /**
- * Fills the first-year numbers a provider left out but that follow from the
- * ones they gave (accelerated = regular + extra deduction), and works out
- * regular depreciation from the provider's basis when they didn't state it.
- * Returns the filled values and the keys that were calculated by us.
+ * Fills a number a provider left out only when it is plain arithmetic on
+ * numbers that same provider gave (accelerated = regular + extra deduction,
+ * dollars = basis x percent). Nothing is estimated or assumed. Returns the
+ * filled values and the keys that were calculated.
  */
-export function deriveValues(v: QuoteValues, sl: StraightLineContext = null) {
+export function deriveValues(v: QuoteValues) {
   const out: QuoteValues = { ...v };
   const calculated: QuoteKey[] = [];
   const set = (k: QuoteKey, n: number) => { out[k] = Math.round(n * 100) / 100; calculated.push(k); };
   if (!has(out.regularDepreciation) && has(out.firstYearDeduction) && has(out.increasedDeduction)
       && Number(out.firstYearDeduction) > Number(out.increasedDeduction)) {
     set("regularDepreciation", Number(out.firstYearDeduction) - Number(out.increasedDeduction));
-  }
-  if (!has(out.regularDepreciation) && has(out.depreciableBasis) && sl) {
-    // Mid-month convention: the year it's placed in service gets (12.5 - month) / 12 of a year.
-    set("regularDepreciation", Number(out.depreciableBasis) / sl.lifeYears * (12.5 - sl.inServiceMonth) / 12);
   }
   if (!has(out.firstYearDeduction) && has(out.regularDepreciation) && has(out.increasedDeduction)) {
     set("firstYearDeduction", Number(out.regularDepreciation) + Number(out.increasedDeduction));

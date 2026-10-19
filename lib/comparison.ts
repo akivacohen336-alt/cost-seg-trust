@@ -5,7 +5,7 @@ import { fallbackSummary, writeComparisonSummary, type ComparisonColumn } from "
 import { loadDeal, setDealStage } from "./deals";
 import { emailHtml, esc, sendEmail } from "./notify";
 import { renderComparisonPdf } from "./pdf";
-import { COMPARISON_ROWS, QUOTE_FIELDS, deriveValues, rowToValues, savingsPerDollar, straightLineContext, type QuoteKey, type QuoteValues } from "./quote-fields";
+import { COMPARISON_ROWS, QUOTE_FIELDS, deriveValues, rowToValues, savingsPerDollar, type QuoteKey, type QuoteValues } from "./quote-fields";
 
 export type ComparisonView = {
   comparison: any;
@@ -33,9 +33,8 @@ export async function loadComparison(dealId: string): Promise<ComparisonView | n
       hidden: (comparison.hidden_invites ?? []).includes(r.invite_id), notes: r.ai_notes ?? {} };
   });
   const visible = quotes.filter(q => !q.hidden);
-  const sl = straightLineContext(deal);
   const columns = visible.map((q, i) => {
-    const { values, calculated } = deriveValues(q.values, sl);
+    const { values, calculated } = deriveValues(q.values);
     return {
       inviteId: q.inviteId, aiFilled: q.aiFilled, calculated,
       name: comparison.anonymize ? `Provider ${String.fromCharCode(65 + i)}` : q.supplier,

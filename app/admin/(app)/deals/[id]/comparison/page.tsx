@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { defaultClientMessage, loadComparison } from "@/lib/comparison";
-import { COMPARISON_ROWS, QUOTE_FIELDS, straightLineContext } from "@/lib/quote-fields";
+import { COMPARISON_ROWS, QUOTE_FIELDS } from "@/lib/quote-fields";
 import ComparisonEditor from "@/components/ComparisonEditor";
 import { StagePill, dateTime } from "@/components/ui";
 
@@ -39,7 +39,6 @@ export default async function ComparisonPage({ params }: { params: Promise<{ id:
         quotes={view.quotes.map(q => ({ inviteId: q.inviteId, supplier: q.supplier, values: q.values, aiFilled: q.aiFilled, mismatches: q.mismatches, notes: q.notes }))}
         rows={COMPARISON_ROWS}
         fields={QUOTE_FIELDS.map(f => ({ key: f.key, kind: f.kind }))}
-        straightLine={straightLineContext(d)}
         reports={reports.map(r => ({ id: r.id, version: r.version, filename: r.filename, created: dateTime(r.created_at), sent: r.sent_at ? `${dateTime(r.sent_at)} to ${r.sent_to}` : null }))}
         defaultMessage={c.client_message ?? defaultClientMessage(d, view.columns.length)}
         clientEmail={d.email}

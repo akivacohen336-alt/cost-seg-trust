@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { approveAndSendAction, buildComparisonAction, generatePdfAction, saveComparisonAction, unlockAction } from "@/app/admin/deal-actions";
-import { deriveValues, formatValue, savingsPerDollar, STUDY_TYPES, type StraightLineContext } from "@/lib/quote-fields";
+import { deriveValues, formatValue, savingsPerDollar, STUDY_TYPES } from "@/lib/quote-fields";
 
 type Quote = { inviteId: string; supplier: string; values: Record<string, any>; aiFilled: string[]; mismatches: any[]; notes: any };
 type Row = { key: string; label: string; kind: string; best?: "min" | "max" };
@@ -11,7 +11,7 @@ type Edits = { summary: string; anonymize: boolean; hiddenRows: string[]; hidden
 
 export default function ComparisonEditor(p: {
   dealId: string; status: string; summarySource: string; initial: Edits; quotes: Quote[]; rows: Row[];
-  fields: { key: string; kind: string }[]; straightLine: StraightLineContext; reports: { id: string; version: number; filename: string; created: string; sent: string | null }[];
+  fields: { key: string; kind: string }[]; reports: { id: string; version: number; filename: string; created: string; sent: string | null }[];
   defaultMessage: string; clientEmail: string;
 }) {
   const router = useRouter();
@@ -33,9 +33,9 @@ export default function ComparisonEditor(p: {
 
   // What the client will see, live as you edit.
   const columns = useMemo(() => p.quotes.filter(q => !e.hiddenInvites.includes(q.inviteId)).map((q, i) => {
-    const { values, calculated } = deriveValues({ ...q.values, ...(e.overrides[q.inviteId] ?? {}) }, p.straightLine);
+    const { values, calculated } = deriveValues({ ...q.values, ...(e.overrides[q.inviteId] ?? {}) });
     return { ...q, calculated: calculated as string[], values: { ...values, savingsPerDollar: savingsPerDollar(values) } as Record<string, any>, name: e.anonymize ? `Provider ${String.fromCharCode(65 + i)}` : q.supplier };
-  }), [p.quotes, e, p.straightLine]);
+  }), [p.quotes, e]);
   const rows = p.rows.filter(r => !e.hiddenRows.includes(r.key));
   const best: Record<string, number> = {};
   for (const r of rows) {
