@@ -5,13 +5,13 @@ import { fallbackSummary, writeComparisonSummary, type ComparisonColumn } from "
 import { loadDeal, setDealStage } from "./deals";
 import { emailHtml, esc, sendEmail } from "./notify";
 import { renderComparisonPdf } from "./pdf";
-import { COMPARISON_ROWS, QUOTE_FIELDS, rowToValues, savingsPerDollar, type QuoteValues } from "./quote-fields";
+import { COMPARISON_ROWS, QUOTE_FIELDS, deriveValues, rowToValues, savingsPerDollar, straightLineContext, type QuoteKey, type QuoteValues } from "./quote-fields";
 
 export type ComparisonView = {
   comparison: any;
   deal: any;
   quotes: { inviteId: string; supplier: string; values: QuoteValues; aiFilled: string[]; mismatches: any[]; hidden: boolean; notes: any }[];
-  columns: (ComparisonColumn & { inviteId: string; aiFilled: string[] })[];
+  columns: (ComparisonColumn & { inviteId: string; aiFilled: string[]; calculated: QuoteKey[] })[];
   rows: typeof COMPARISON_ROWS;
   best: Record<string, number>;
 };
@@ -33,11 +33,15 @@ export async function loadComparison(dealId: string): Promise<ComparisonView | n
       hidden: (comparison.hidden_invites ?? []).includes(r.invite_id), notes: r.ai_notes ?? {} };
   });
   const visible = quotes.filter(q => !q.hidden);
-  const columns = visible.map((q, i) => ({
-    inviteId: q.inviteId, aiFilled: q.aiFilled,
-    name: comparison.anonymize ? `Provider ${String.fromCharCode(65 + i)}` : q.supplier,
-    values: { ...q.values, savingsPerDollar: savingsPerDollar(q.values) },
-  }));
+  const sl = straightLineContext(deal);
+  const columns = visible.map((q, i) => {
+    const { values, calculated } = deriveValues(q.values, sl);
+    return {
+      inviteId: q.inviteId, aiFilled: q.aiFilled, calculated,
+      name: comparison.anonymize ? `Provider ${String.fromCharCode(65 + i)}` : q.supplier,
+      values: { ...values, savingsPerDollar: savingsPerDollar(values) },
+    };
+  });
   const rowsShown = COMPARISON_ROWS.filter(r => !(comparison.hidden_rows ?? []).includes(r.key));
   const best: Record<string, number> = {};
   for (const r of rowsShown) {

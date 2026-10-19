@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { approveAndSendAction, buildComparisonAction, generatePdfAction, saveComparisonAction, unlockAction } from "@/app/admin/deal-actions";
-import { formatValue, savingsPerDollar, STUDY_TYPES } from "@/lib/quote-fields";
+import { deriveValues, formatValue, savingsPerDollar, STUDY_TYPES, type StraightLineContext } from "@/lib/quote-fields";
 
 type Quote = { inviteId: string; supplier: string; values: Record<string, any>; aiFilled: string[]; mismatches: any[]; notes: any };
 type Row = { key: string; label: string; kind: string; best?: "min" | "max" };
@@ -11,7 +11,7 @@ type Edits = { summary: string; anonymize: boolean; hiddenRows: string[]; hidden
 
 export default function ComparisonEditor(p: {
   dealId: string; status: string; summarySource: string; initial: Edits; quotes: Quote[]; rows: Row[];
-  fields: { key: string; kind: string }[]; reports: { id: string; version: number; filename: string; created: string; sent: string | null }[];
+  fields: { key: string; kind: string }[]; straightLine: StraightLineContext; reports: { id: string; version: number; filename: string; created: string; sent: string | null }[];
   defaultMessage: string; clientEmail: string;
 }) {
   const router = useRouter();
@@ -33,9 +33,9 @@ export default function ComparisonEditor(p: {
 
   // What the client will see, live as you edit.
   const columns = useMemo(() => p.quotes.filter(q => !e.hiddenInvites.includes(q.inviteId)).map((q, i) => {
-    const values: Record<string, any> = { ...q.values, ...(e.overrides[q.inviteId] ?? {}) };
-    return { ...q, values: { ...values, savingsPerDollar: savingsPerDollar(values) } as Record<string, any>, name: e.anonymize ? `Provider ${String.fromCharCode(65 + i)}` : q.supplier };
-  }), [p.quotes, e]);
+    const { values, calculated } = deriveValues({ ...q.values, ...(e.overrides[q.inviteId] ?? {}) }, p.straightLine);
+    return { ...q, calculated: calculated as string[], values: { ...values, savingsPerDollar: savingsPerDollar(values) } as Record<string, any>, name: e.anonymize ? `Provider ${String.fromCharCode(65 + i)}` : q.supplier };
+  }), [p.quotes, e, p.straightLine]);
   const rows = p.rows.filter(r => !e.hiddenRows.includes(r.key));
   const best: Record<string, number> = {};
   for (const r of rows) {
@@ -80,7 +80,7 @@ export default function ComparisonEditor(p: {
             {p.status === "sent" ? "Sent to client" : p.status === "awaiting_approval" ? "Awaiting your approval" : "Draft"}
           </span>
         </div>
-        {!locked ? <p className="small muted" style={{ margin: 0 }}>Click any value to correct it. Green marks the best value in a row. Values the AI read from a proposal PDF are marked “AI”.</p> : null}
+        {!locked ? <p className="small muted" style={{ margin: 0 }}>Click any value to correct it. Green marks the best value in a row. Values the AI read from a proposal PDF are marked “AI”, and values we worked out from the provider's other numbers are marked “calculated”.</p> : null}
         <div className="tablewrap">
           <table>
             <thead><tr><th></th>{columns.map(c => <th key={c.inviteId} style={{ textTransform: "none", letterSpacing: 0, fontSize: ".86rem", color: "var(--heading)" }}>{c.name}</th>)}</tr></thead>
@@ -101,7 +101,7 @@ export default function ComparisonEditor(p: {
                             {formatValue(c.values[r.key], r.kind)}
                           </span>
                         )}
-                        {overridden ? <span className="small muted"> · edited</span> : c.aiFilled.includes(r.key) ? <span className="small muted"> · AI</span> : null}
+                        {overridden ? <span className="small muted"> · edited</span> : c.calculated.includes(r.key) ? <span className="small muted"> · calculated</span> : c.aiFilled.includes(r.key) ? <span className="small muted"> · AI</span> : null}
                         {mismatch && !overridden ? <div className="small" style={{ color: "var(--warn-ink)", fontWeight: 500 }}>PDF says {formatValue(mismatch.pdf, r.kind)}</div> : null}
                       </td>
                     );

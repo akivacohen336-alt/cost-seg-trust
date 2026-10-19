@@ -264,6 +264,7 @@ describe("phase 6: AI standardization", () => {
     fee: 5200, studyType: "Modified / desktop", siteVisit: false, turnaroundDays: 14, reclassifiedPct: 24,
     firstYearDeduction: 480000, firstYearTaxSavings: 177600, assumedTaxRate: 37, auditSupport: "Audit defense, 3 years",
     includesLookback: true, paymentTerms: "Due on delivery", validDays: 30,
+    depreciableBasis: null, regularDepreciation: null, increasedDeduction: null, acceleratedAmount: null, scopeOfWork: "Desktop study and report",
     inclusions: ["Bonus depreciation schedule"], exclusions: ["Travel billed separately"], caveats: ["Assumes 20% land allocation"],
   };
 
@@ -286,7 +287,7 @@ describe("phase 6: AI standardization", () => {
     expect(Number(q.est_first_year_tax_savings)).toBe(177600); // filled from the PDF
     expect(q.ai_filled_fields).not.toContain("fee");
     expect(q.ai_filled_fields).toContain("firstYearTaxSavings");
-    expect(q.ai_mismatches).toEqual([{ field: "fee", label: "Study fee", typed: 4900, pdf: 5200 }]);
+    expect(q.ai_mismatches).toEqual([{ field: "fee", label: "Cost of service (study fee)", typed: 4900, pdf: 5200 }]);
     expect(q.ai_notes.exclusions).toEqual(["Travel billed separately"]);
 
     const call = fake.state.ai[0];

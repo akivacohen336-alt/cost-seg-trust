@@ -18,12 +18,17 @@ const num = z.number().nullable();
 export const StandardQuoteSchema = z.object({
   fee: num.describe("Total study fee in US dollars"),
   studyType: z.enum(STUDY_TYPES).nullable(),
-  siteVisit: z.boolean().nullable().describe("True if an on-site inspection is included"),
+  siteVisit: z.boolean().nullable().describe("True if an in-person, on-site inspection is included; false if virtual or none"),
   turnaroundDays: num.describe("Delivery time in calendar days (convert weeks to days)"),
   reclassifiedPct: num.describe("Percent of depreciable basis reclassified to 5/7/15-year property, 0-100"),
-  firstYearDeduction: num.describe("Estimated first-year depreciation deduction in US dollars"),
+  depreciableBasis: num.describe("Depreciable basis (building cost, excluding land) the estimate is based on, in US dollars"),
+  regularDepreciation: num.describe("First-year depreciation WITHOUT a study (straight-line only), in US dollars"),
+  firstYearDeduction: num.describe("Total first-year depreciation WITH the study (accelerated method, bonus included), in US dollars"),
+  increasedDeduction: num.describe("Extra first-year deduction from the study: with-study depreciation minus straight-line depreciation, in US dollars. Null if the provider's 'increased' figure simply equals its total first-year depreciation"),
+  acceleratedAmount: num.describe("Total dollars of basis reclassified to 5, 7 and 15-year property"),
   firstYearTaxSavings: num.describe("Estimated first-year tax savings in US dollars"),
   assumedTaxRate: num.describe("Tax rate the supplier assumed, as a percent 0-100"),
+  scopeOfWork: z.string().nullable().describe("What the study includes, in under 25 words: method (engineering-based, purchase price allocation, desktop), inspection, report, CPA review, delivery time"),
   auditSupport: z.string().nullable().describe("Audit support terms in under 10 words"),
   includesLookback: z.boolean().nullable().describe("True if a look-back study / Form 3115 support is included"),
   paymentTerms: z.string().nullable().describe("Payment terms in under 10 words"),
@@ -42,7 +47,9 @@ Rules:
 - Use only what the supplier stated in the form or the proposal. If a value is not stated, return null. Never estimate or calculate a value the supplier did not give, except converting units (weeks to days, a decimal rate to a percent).
 - Where the form and the PDF disagree, report what the PDF says; the app compares the two and flags differences for review.
 - Money is a plain number of US dollars (no symbols). Percentages are 0-100.
-- Keep the short text fields brief and neutral.`;
+- Keep the short text fields brief and neutral.
+- When the provider gives a range (conservative and high end), use the conservative figures and mention the high end in caveats.
+- When the proposal covers several properties, use the portfolio totals.`;
 
 function describeFormValues(v: QuoteValues, comments: string | null) {
   const lines = QUOTE_FIELDS.map(f => `${f.label}: ${v[f.key] == null ? "(blank)" : formatValue(v[f.key], f.kind === "study" ? "text" : f.kind)}`);
@@ -75,7 +82,8 @@ export async function extractStandardQuote(input: {
   return res.parsed_output;
 }
 
-const NUMERIC: QuoteKey[] = ["fee", "turnaroundDays", "reclassifiedPct", "firstYearDeduction", "firstYearTaxSavings", "assumedTaxRate", "validDays"];
+const NUMERIC: QuoteKey[] = ["fee", "turnaroundDays", "depreciableBasis", "regularDepreciation", "reclassifiedPct", "firstYearDeduction",
+  "increasedDeduction", "acceleratedAmount", "firstYearTaxSavings", "assumedTaxRate", "validDays"];
 
 /**
  * Combines what the supplier typed with what the AI read. The supplier's own
@@ -149,7 +157,7 @@ export async function writeComparisonSummary(deal: { property_type: string; purc
       role: "user",
       content: `Property: ${deal.property_type}, purchase price ${deal.purchase_price == null ? "not given" : "$" + Math.round(Number(deal.purchase_price)).toLocaleString("en-US")}.
 
-Write a 3 to 4 sentence summary of these quotes: the fee range, the range of estimated first-year tax savings, which provider offers the most estimated savings per dollar of fee, which is fastest, and any difference that matters (for example a desktop study versus a full engineering study with a site visit, or weaker audit support). Use only the figures below, and never invent a number. Plain sentences only, no headings or bullet points.
+Write a 3 to 4 sentence summary of these quotes: the fee range, the range of estimated first-year tax benefit, which provider offers the most estimated savings per dollar of fee, which is fastest, and any difference that matters (for example a desktop study versus a full engineering study with a site visit, or weaker audit support, or providers using a different depreciable basis or tax rate). Use only the figures below, and never invent a number. Plain sentences only, no headings or bullet points.
 
 ${JSON.stringify(table, null, 1)}`,
     }],

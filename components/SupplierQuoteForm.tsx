@@ -52,12 +52,16 @@ export default function SupplierQuoteForm({ token }: { token: string }) {
         <div className="grid2">
           {num("fee", "Study fee ($)")}
           <label className="field">Study type<select name="studyType" defaultValue=""><option value="">Select</option>{STUDY_TYPES.map(t => <option key={t}>{t}</option>)}</select></label>
-          {yesNo("siteVisit", "Site visit included")}
+          {yesNo("siteVisit", "In-person site visit included")}
           {num("turnaroundDays", "Turnaround (days)")}
+          {num("depreciableBasis", "Depreciable basis used ($)")}
+          {num("regularDepreciation", "Year-1 depreciation without a study ($)", "straight-line")}
+          {num("firstYearDeduction", "Year-1 depreciation with the study ($)", "accelerated, incl. bonus")}
+          {num("acceleratedAmount", "Total moved to 5, 7 and 15-year ($)")}
           {num("reclassifiedPct", "% of basis reclassified")}
-          {num("firstYearDeduction", "Est. first-year deduction ($)")}
-          {num("firstYearTaxSavings", "Est. first-year tax savings ($)")}
+          {num("firstYearTaxSavings", "Est. first-year tax benefit ($)")}
           {num("assumedTaxRate", "Assumed tax rate (%)")}
+          <label className="field">Scope of work<input type="text" name="scopeOfWork" placeholder="e.g. Engineering-based study, on-site inspection, report and CPA review" /></label>
           <label className="field">Audit support<input type="text" name="auditSupport" placeholder="e.g. Full audit defense included" /></label>
           {yesNo("includesLookback", "Look-back / Form 3115 included")}
           <label className="field">Payment terms<input type="text" name="paymentTerms" placeholder="e.g. 50% upfront, 50% on delivery" /></label>
