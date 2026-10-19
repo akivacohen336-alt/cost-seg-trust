@@ -3,6 +3,13 @@ const nextConfig = {
   poweredByHeader: false,
   // Client-folder uploads go through a server action (files up to 4 MB).
   experimental: { serverActions: { bodySizeLimit: "5mb" } },
+  // Pages from the earlier design that the Lovable-style site doesn't have.
+  async redirects() {
+    return [
+      { source: "/quote", destination: "/start", permanent: false },
+      ...["/about", "/how-it-works", "/why-compare", "/contact"].map(source => ({ source, destination: "/", permanent: false })),
+    ];
+  },
   async headers() {
     return [{
       source: "/:path*",

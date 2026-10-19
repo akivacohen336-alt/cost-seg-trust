@@ -13,7 +13,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ code: st
     console.error("referral link lookup failed", e);
     return null;
   });
-  const url = new URL(partner ? `/quote?ref=${partner.code}` : "/quote", req.url);
+  const url = new URL(partner ? `/start?ref=${partner.code}` : "/start", req.url);
   const res = NextResponse.redirect(url, 307);
   if (partner) {
     res.cookies.set(REF_COOKIE, partner.code, {

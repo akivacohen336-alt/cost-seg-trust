@@ -6,7 +6,7 @@ export const metadata: Metadata = { title: "Privacy Policy", description: "How C
 
 export default function Privacy() {
   return (
-    <LegalPage eyebrow="Legal" title="Privacy Policy" intro="How Cost Seg Trust collects, uses and protects the information you share with us.">
+    <LegalPage title="Privacy Policy" intro="How Cost Seg Trust collects, uses and protects the information you share with us.">
       <h2>Information we collect</h2>
       <p>When you request quotes or contact us, we collect the information you provide, which may include:</p>
       <ul>

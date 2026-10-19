@@ -71,11 +71,12 @@ function propertyType(v: unknown): string {
   const k = key(s);
   const exact = PROPERTY_TYPES.find(t => key(t) === k);
   if (exact) return exact;
+  // Most specific first: "Warehouse" and "Student Housing" contain "house".
   const rules: [RegExp, (typeof PROPERTY_TYPES)[number]][] = [
-    [/shortterm|str|airbnb|vacation/, "Short-term rental"], [/singlefamily|sfr|house/, "Single-family rental"],
-    [/multi|apartment|duplex|triplex|fourplex/, "Multifamily"], [/office|medical/, "Office"], [/retail|shopping|restaurant/, "Retail"],
-    [/industrial|warehouse|manufactur|flex/, "Industrial/Warehouse"], [/storage/, "Self storage"], [/hotel|motel|hospitality/, "Hotel/Hospitality"],
-    [/mixed/, "Mixed use"],
+    [/storage/, "Self storage"], [/industrial|warehouse|manufactur|flex/, "Industrial/Warehouse"],
+    [/shortterm|str|airbnb|vacation/, "Short-term rental"], [/multi|apartment|duplex|triplex|fourplex|student/, "Multifamily"],
+    [/singlefamily|sfr|house/, "Single-family rental"], [/office|medical/, "Office"], [/retail|shopping|restaurant/, "Retail"],
+    [/hotel|motel|hospitality/, "Hotel/Hospitality"], [/mixed/, "Mixed use"],
   ];
   return rules.find(([re]) => re.test(k))?.[1] ?? s;
 }

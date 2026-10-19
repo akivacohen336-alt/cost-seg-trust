@@ -1,22 +1,24 @@
 import type { Metadata } from "next";
-import SiteHeader from "@/components/site/SiteHeader";
-import SiteFooter from "@/components/site/SiteFooter";
 import "./site.css";
 
 export const metadata: Metadata = {
-  title: { default: "Cost Seg Trust | Compare Cost Segregation Quotes", template: "%s | Cost Seg Trust" },
+  title: { default: "CostSegTrust - Compare Top Cost Segregation Providers & Maximize Tax Savings", template: "%s | CostSegTrust" },
   description:
-    "Submit your property once and compare cost segregation quotes from multiple providers side by side. Free, with no obligation.",
-  openGraph: { siteName: "Cost Seg Trust", type: "website" },
+    "Get competitive quotes from qualified cost segregation providers. Accelerate depreciation deductions and reduce tax liability on your real estate investments with CostSegTrust.",
+  keywords: ["cost segregation", "tax savings", "real estate depreciation", "IRS audit", "cost seg providers", "property depreciation", "tax benefits"],
+  openGraph: {
+    siteName: "CostSegTrust", type: "website", title: "CostSegTrust - Compare Top Cost Segregation Providers",
+    description: "Get competitive quotes from qualified cost segregation providers. Save thousands on taxes with expert engineering and accounting analysis.",
+    images: ["/img/og-image.png"],
+  },
+  twitter: {
+    card: "summary_large_image", title: "CostSegTrust - Maximize Real Estate Tax Benefits",
+    description: "Compare cost segregation services from top providers. Save thousands on taxes.", images: ["/img/og-image.png"],
+  },
+  icons: { icon: "/img/favicon.png", apple: "/img/apple-touch-icon.png" },
 };
 
+// Each page brings its own header and footer, as on the Lovable site.
 export default function SiteLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="site">
-      <a className="s-skip" href="#main">Skip to content</a>
-      <SiteHeader />
-      <main id="main">{children}</main>
-      <SiteFooter />
-    </div>
-  );
+  return children;
 }

@@ -1,6 +1,7 @@
 // Leads posted from the main website (costsegtrust.com): real Postgres, fake email/HubSpot.
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { createFakeServices } from "./fake-services";
+import { parseWebsiteLead } from "../lib/website-lead";
 
 vi.mock("@/lib/admin-auth", () => ({ requireAdmin: async () => ({ sub: "admin" }) }));
 vi.mock("next/cache", () => ({ revalidatePath: () => {} }));
@@ -10,25 +11,27 @@ let sql: any;
 let route: typeof import("../app/api/website-lead/route");
 let suppliers: typeof import("../lib/suppliers");
 let actions: typeof import("../app/admin/actions");
+let files: typeof import("../app/api/website-lead/files/route");
 
 beforeAll(async () => {
   const base = await fake.listen();
   Object.assign(process.env, {
     RESEND_API_KEY: "test-resend", RESEND_API_URL: base, HUBSPOT_PRIVATE_APP_TOKEN: "test-hubspot-token", HUBSPOT_API_URL: base,
-    APP_URL: "https://costsegtrust.test",
+    APP_URL: "https://costsegtrust.test", SESSION_SECRET: "test-session-secret-at-least-32-characters-long",
   });
   await (await import("../lib/migrate")).ensureSchema();
   sql = (await import("../lib/db")).db();
   route = await import("../app/api/website-lead/route");
   suppliers = await import("../lib/suppliers");
   actions = await import("../app/admin/actions");
+  files = await import("../app/api/website-lead/files/route");
 });
 
 afterAll(async () => { await fake.close(); await sql.end(); });
 
 beforeEach(async () => {
   fake.reset();
-  await sql`truncate deal_events, notifications, comparisons, supplier_quotes, supplier_invites, deals, clients restart identity cascade`;
+  await sql`truncate client_files, deal_events, notifications, comparisons, supplier_quotes, supplier_invites, deals, clients, partners restart identity cascade`;
   await sql`alter sequence deal_number_seq restart with 1001`;
 });
 
@@ -106,5 +109,57 @@ describe("website leads", () => {
     await post(lead);
     expect((await sql`select count(*)::int n from deals`)[0].n).toBe(1);
     expect((await post({ name: "No Email" })).status).toBe(422);
+  });
+
+  it("takes our own site's quote form, with its documents, into the dashboard", async () => {
+    const SITE = "https://cost-seg-trust.vercel.app";
+    await sql`insert into partners (name, code, email) values ('Jane Partner', 'jane-p', 'jp@example.com')`;
+    const res = await route.POST(new Request(`${SITE}/api/website-lead`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Origin: SITE, Cookie: "cst_ref=jane-p" },
+      body: JSON.stringify({
+        requestKey: "6f1c2a8e-4b7d-4c1e-9a2b-3d4e5f6a7b8c", name: "Ana Lopez", email: "ana@example.com", phone: "(512) 555-0100",
+        streetAddress: "9 Dock Rd", city: "Austin", state: "TX", zipCode: "78701", propertyType: "Warehouse Facilities",
+        purchaseDate: "2025-06-02", purchasePrice: "$3,100,000", additionalInfo: "Two buildings",
+        "1031 exchange": "Yes", "Carried-over basis": "$250,000", "Relinquished property": "456 Oak Ave",
+        "Relinquished property sale date": "2025-05-01", "Placed in service in a previous tax year and already depreciated": "No",
+        "Additional property 2": "1 Elm St, Austin, TX 78702 · Student Housing · $900,000",
+      }),
+    }));
+    expect(res.status).toBe(200);
+    const out = await res.json();
+    expect(out).toMatchObject({ ok: true, reference: "CST-1001" });
+    expect(out.uploadToken).toEqual(expect.any(String));
+    const [d] = await sql`select d.*, p.code from deals d left join partners p on p.id = d.partner_id`;
+    expect(d).toMatchObject({ property_type: "Industrial/Warehouse", property_address: "9 Dock Rd, Austin, TX 78701", code: "jane-p", is_test: false });
+    expect(Number(d.purchase_price)).toBe(3100000);
+    expect(d.client_notes).toContain("1031 exchange: Yes");
+    expect(d.client_notes).toContain("Additional property 2: 1 Elm St, Austin, TX 78702 · Student Housing · $900,000");
+
+    const upload = (token: string, name: string, origin = SITE) => {
+      const f = new FormData();
+      f.set("token", token); f.set("docType", "closing_statement"); f.set("file", new File([new Uint8Array([37, 80, 68, 70])], name));
+      return files.POST(new Request(`${SITE}/api/website-lead/files`, { method: "POST", headers: { Origin: origin }, body: f }));
+    };
+    expect((await upload(out.uploadToken, "hud.pdf")).status).toBe(200);
+    expect((await upload(out.uploadToken, "virus.exe")).status).toBe(415);
+    expect((await upload("not-a-token", "hud.pdf")).status).toBe(401);
+    expect((await upload(out.uploadToken, "hud.pdf", "https://evil.example")).status).toBe(403);
+    const saved = await sql`select filename, content_type, deal_id, client_id from client_files`;
+    expect(saved).toEqual([{ filename: "Closing statement - hud.pdf", content_type: "application/pdf", deal_id: d.id, client_id: d.client_id }]);
+  });
+
+  it("reads the site's property types into the dashboard's", () => {
+    const type = (propertyType: string) => {
+      const r = parseWebsiteLead({ name: "A B", email: "a@example.com", propertyType });
+      return r.ok ? r.lead.propertyType : null;
+    };
+    expect(type("Warehouse Facilities")).toBe("Industrial/Warehouse");
+    expect(type("Self Storage Facilities")).toBe("Self storage");
+    expect(type("Student Housing")).toBe("Multifamily");
+    expect(type("Apartment Complexes")).toBe("Multifamily");
+    expect(type("Short Term Rentals")).toBe("Short-term rental");
+    expect(type("Medical Offices")).toBe("Office");
+    expect(type("Nursing Homes")).toBe("Nursing Homes");
   });
 });

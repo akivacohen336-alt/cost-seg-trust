@@ -37,6 +37,10 @@ export const MIGRATIONS: { name: string; sql: string }[] = [
     "sql": "-- Leads from the main website (costsegtrust.com, built in Lovable) may not\n-- include every property fact. A deal can be saved without the purchase\n-- price or in-service date; Akiva fills them in before sending to suppliers.\nalter table deals alter column purchase_price drop not null;\nalter table deals alter column placed_in_service drop not null;\n"
   },
   {
+    "name": "010_site_assets.sql",
+    "sql": "-- Photos and logo for the public website, copied from the Lovable site.\n-- Kept in the database (like client files) and served from /img/<name>.\ncreate table if not exists site_assets (\n  name         text primary key,\n  content_type text not null,\n  data         bytea not null,\n  updated_at   timestamptz not null default now()\n);\nalter table site_assets enable row level security;\n"
+  },
+  {
     "name": "seed_test_suppliers.sql",
     "sql": "-- Test suppliers for safe end-to-end testing. Their emails use \"+\" addressing,\n-- so anything \"sent to a supplier\" lands in the owner's own Gmail inbox.\n-- Real suppliers are added later from the admin Suppliers page.\ninsert into suppliers (company_name, contact_name, email, description, is_test) values\n  ('Test Supplier A', 'Test Contact A', 'akivacohen336+supplier-a@gmail.com', 'Test only: full engineering studies', true),\n  ('Test Supplier B', 'Test Contact B', 'akivacohen336+supplier-b@gmail.com', 'Test only: desktop studies', true),\n  ('Test Supplier C', 'Test Contact C', 'akivacohen336+supplier-c@gmail.com', 'Test only: residential and STR', true)\non conflict (email) do nothing;\n"
   }

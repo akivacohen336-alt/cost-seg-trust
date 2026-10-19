@@ -5,7 +5,7 @@ export const metadata: Metadata = { title: "Tax Disclaimer", description: "Cost 
 
 export default function TaxDisclaimer() {
   return (
-    <LegalPage eyebrow="Legal" title="Tax Disclaimer" intro="Important information about estimates, tax benefits and the limits of our role.">
+    <LegalPage title="Tax Disclaimer" intro="Important information about estimates, tax benefits and the limits of our role.">
       <h2>Not tax, legal or accounting advice</h2>
       <p>
         Cost Seg Trust does not provide tax, legal or accounting advice. Nothing on this website, in a comparison or in any
