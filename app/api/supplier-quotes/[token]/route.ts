@@ -27,6 +27,8 @@ const quoteSchema = z.object({
   increasedDeduction: optNum(10_000_000_000),
   acceleratedAmount: optNum(10_000_000_000),
   firstYearTaxSavings: optNum(10_000_000_000),
+  firstYearTaxSavingsHigh: optNum(10_000_000_000),
+  taxBenefitOn: z.preprocess(v => (v === "extra" || v === "total" ? v : null), z.enum(["extra", "total"]).nullable()),
   assumedTaxRate: optNum(100),
   scopeOfWork: optText,
   auditSupport: optText,

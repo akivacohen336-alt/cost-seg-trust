@@ -2,7 +2,9 @@
 // and the rows of the one-page comparison.
 export const STUDY_TYPES = ["Full engineering", "Modified / desktop", "Residential / template", "Other"] as const;
 
-export type QuoteFieldKind = "money" | "pct" | "int" | "bool" | "text" | "study";
+export type QuoteFieldKind = "money" | "pct" | "int" | "bool" | "text" | "study" | "benefitOn";
+/** What a provider's tax benefit is figured on. Only "extra" compares across providers. */
+export const BENEFIT_ON = { extra: "Extra deduction from the study", total: "All year-1 depreciation (regular portion included)" } as const;
 export type QuoteField = { key: QuoteKey; label: string; kind: QuoteFieldKind; column: string };
 
 export const QUOTE_FIELDS = [
@@ -17,6 +19,8 @@ export const QUOTE_FIELDS = [
   { key: "acceleratedAmount", label: "Total moved to 5, 7 and 15-year property", kind: "money", column: "accelerated_amount" },
   { key: "reclassifiedPct", label: "% of basis reclassified", kind: "pct", column: "reclassified_pct" },
   { key: "firstYearTaxSavings", label: "First-year tax benefit", kind: "money", column: "est_first_year_tax_savings" },
+  { key: "firstYearTaxSavingsHigh", label: "First-year tax benefit, high end (if a range)", kind: "money", column: "est_first_year_tax_savings_high" },
+  { key: "taxBenefitOn", label: "Tax benefit is figured on", kind: "benefitOn", column: "tax_benefit_on" },
   { key: "assumedTaxRate", label: "Assumed tax rate", kind: "pct", column: "assumed_tax_rate" },
   { key: "scopeOfWork", label: "Scope of work", kind: "text", column: "scope_of_work" },
   { key: "auditSupport", label: "Audit support", kind: "text", column: "audit_support" },
@@ -79,10 +83,59 @@ export function rowToValues(row: Record<string, any>): QuoteValues {
   return out;
 }
 
+/** Tax benefit per $1 of fee, low and high end. Not given when the benefit includes regular depreciation. */
 export const savingsPerDollar = (v: QuoteValues) => {
   const fee = Number(v.fee), sav = Number(v.firstYearTaxSavings);
-  return fee > 0 && sav > 0 ? sav / fee : null;
+  return v.taxBenefitOn !== "total" && fee > 0 && sav > 0 ? sav / fee : null;
 };
+export const savingsPerDollarHigh = (v: QuoteValues) => {
+  const fee = Number(v.fee), high = Number(v.firstYearTaxSavingsHigh);
+  return savingsPerDollar(v) != null && high > 0 ? high / fee : null;
+};
+export const withRatios = <T extends QuoteValues>(v: T) => ({ ...v, savingsPerDollar: savingsPerDollar(v), savingsPerDollarHigh: savingsPerDollarHigh(v) });
+
+const TOTAL_NOTE = "tax on all year-1 depreciation; regular portion not stated";
+
+/** The text a comparison cell shows, with ranges and the tax-benefit caveat. Empty is "—". */
+export function cellText(values: Record<string, any>, row: { key: string; kind: string }): string {
+  const v = values[row.key];
+  if (row.key === "firstYearTaxSavings") {
+    if (v == null) return "—";
+    const range = values.firstYearTaxSavingsHigh > v ? `${formatValue(v, "money")} – ${formatValue(values.firstYearTaxSavingsHigh, "money")}` : formatValue(v, "money");
+    return values.taxBenefitOn === "total" ? `${range} (${TOTAL_NOTE})` : range;
+  }
+  if (row.key === "savingsPerDollar") {
+    if (values.taxBenefitOn === "total" && values.firstYearTaxSavings != null) return "Not comparable (benefit includes regular depreciation)";
+    if (v == null) return "—";
+    return values.savingsPerDollarHigh > v ? `${formatValue(v, "ratio")} – ${formatValue(values.savingsPerDollarHigh, "ratio")}` : formatValue(v, "ratio");
+  }
+  return formatValue(v, row.kind);
+}
+
+/**
+ * The winning value of each ranked row. A provider wins only if it beats every
+ * other provider even at their best (high end of a range); otherwise the row
+ * has no winner. Benefits that include regular depreciation never compete.
+ */
+export function bestValues(columns: { values: Record<string, any> }[], rows: { key: string; best?: "min" | "max" }[]) {
+  const best: Record<string, number> = {};
+  for (const r of rows) {
+    if (!r.best) continue;
+    const highKey = r.key === "savingsPerDollar" ? "savingsPerDollarHigh" : null;
+    const vals = columns.map(c => {
+      const low = Number(c.values[r.key]);
+      const high = highKey && Number(c.values[highKey]) > low ? Number(c.values[highKey]) : low;
+      return { low, high };
+    }).filter(x => isFinite(x.low) && x.low > 0);
+    if (vals.length < 2) continue;
+    if (r.best === "min") {
+      best[r.key] = Math.min(...vals.map(x => x.low));
+    } else {
+      for (const x of vals) if (vals.every(o => o === x || x.low > o.high)) best[r.key] = x.low;
+    }
+  }
+  return best;
+}
 
 const has = (v: unknown) => v != null && v !== "" && isFinite(Number(v));
 

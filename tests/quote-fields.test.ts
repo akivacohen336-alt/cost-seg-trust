@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { deriveValues } from "@/lib/quote-fields";
+import { bestValues, cellText, COMPARISON_ROWS, deriveValues, withRatios } from "@/lib/quote-fields";
 
 describe("one-pager numbers worked out only from a provider's own figures", () => {
   it("fills regular depreciation from accelerated minus the extra deduction", () => {
@@ -25,5 +25,31 @@ describe("one-pager numbers worked out only from a provider's own figures", () =
     expect(values.regularDepreciation).toBe(5);
     expect(calculated).toEqual([]);
     expect(deriveValues({ firstYearDeduction: 100, increasedDeduction: 100 }).values.regularDepreciation).toBeUndefined();
+  });
+});
+
+describe("tax benefits on the one-pager are only compared when they are comparable", () => {
+  const row = (k: string) => COMPARISON_ROWS.find(r => r.key === k)!;
+  // The Tacoma quotes: CSSI gives a range on the extra deduction; SegPro taxes all year-1 depreciation.
+  const cssi = withRatios({ fee: 8550, firstYearTaxSavings: 567_528, firstYearTaxSavingsHigh: 920_785, taxBenefitOn: "extra" as const });
+  const segpro = withRatios({ fee: 8900, firstYearTaxSavings: 820_827.4, taxBenefitOn: "total" as const });
+
+  it("shows a range, and labels a benefit that includes regular depreciation", () => {
+    expect(cellText(cssi, row("firstYearTaxSavings"))).toBe("$567,528 – $920,785");
+    expect(cellText(segpro, row("firstYearTaxSavings"))).toBe("$820,827 (tax on all year-1 depreciation; regular portion not stated)");
+    expect(cellText(cssi, row("savingsPerDollar"))).toBe("$66.4 – $107.7");
+    expect(cellText(segpro, row("savingsPerDollar"))).toBe("Not comparable (benefit includes regular depreciation)");
+  });
+
+  it("never ranks a benefit that includes regular depreciation", () => {
+    expect(bestValues([{ values: cssi }, { values: segpro }], COMPARISON_ROWS).savingsPerDollar).toBeUndefined();
+  });
+
+  it("ranks benefit per $1 only when one provider beats the others' high end", () => {
+    const sta = withRatios({ fee: 40_000, firstYearTaxSavings: 4_091_381, taxBenefitOn: "extra" as const });
+    const cssiPortfolio = withRatios({ fee: 38_000, firstYearTaxSavings: 2_103_248, firstYearTaxSavingsHigh: 3_105_796, taxBenefitOn: "extra" as const });
+    expect(bestValues([{ values: sta }, { values: cssiPortfolio }], COMPARISON_ROWS).savingsPerDollar).toBeCloseTo(102.28, 1);
+    const close = withRatios({ fee: 38_000, firstYearTaxSavings: 2_103_248, firstYearTaxSavingsHigh: 4_500_000, taxBenefitOn: "extra" as const });
+    expect(bestValues([{ values: sta }, { values: close }], COMPARISON_ROWS).savingsPerDollar).toBeUndefined();
   });
 });

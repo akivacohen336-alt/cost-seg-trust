@@ -5,7 +5,7 @@ import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import { z } from "zod";
 import { config } from "./config";
 import { db, logEvent } from "./db";
-import { COMPARISON_ROWS, QUOTE_FIELDS, STUDY_TYPES, formatValue, rowToValues, type QuoteKey, type QuoteValues } from "./quote-fields";
+import { COMPARISON_ROWS, QUOTE_FIELDS, STUDY_TYPES, cellText, formatValue, rowToValues, type QuoteKey, type QuoteValues } from "./quote-fields";
 
 let client: Anthropic | null = null;
 function anthropic() {
@@ -26,7 +26,9 @@ export const StandardQuoteSchema = z.object({
   firstYearDeduction: num.describe("Total first-year depreciation WITH the study (accelerated method, bonus included), in US dollars"),
   increasedDeduction: num.describe("Extra first-year deduction from the study: with-study depreciation minus straight-line depreciation, in US dollars. Null if the provider's 'increased' figure simply equals its total first-year depreciation"),
   acceleratedAmount: num.describe("Total dollars of basis reclassified to 5, 7 and 15-year property"),
-  firstYearTaxSavings: num.describe("Estimated first-year tax savings in US dollars"),
+  firstYearTaxSavings: num.describe("Estimated first-year tax savings in US dollars; the conservative figure if a range is given"),
+  firstYearTaxSavingsHigh: num.describe("High end of the first-year tax savings, only if the provider gives a range"),
+  taxBenefitOn: z.enum(["extra", "total"]).nullable().describe("'extra' if the tax savings are figured on the extra deduction from the study (with-study depreciation minus straight-line); 'total' if figured on all first-year depreciation, regular portion included; null if unclear"),
   assumedTaxRate: num.describe("Tax rate the supplier assumed, as a percent 0-100"),
   scopeOfWork: z.string().nullable().describe("What the study includes, in under 25 words: method (engineering-based, purchase price allocation, desktop), inspection, report, CPA review, delivery time"),
   auditSupport: z.string().nullable().describe("Audit support terms in under 10 words"),
@@ -52,7 +54,7 @@ Rules:
 - When the proposal covers several properties, use the portfolio totals.`;
 
 function describeFormValues(v: QuoteValues, comments: string | null) {
-  const lines = QUOTE_FIELDS.map(f => `${f.label}: ${v[f.key] == null ? "(blank)" : formatValue(v[f.key], f.kind === "study" ? "text" : f.kind)}`);
+  const lines = QUOTE_FIELDS.map(f => `${f.label}: ${v[f.key] == null ? "(blank)" : formatValue(v[f.key], f.kind === "study" || f.kind === "benefitOn" ? "text" : f.kind)}`);
   if (comments) lines.push(`Comments: ${comments}`);
   return lines.join("\n");
 }
@@ -83,7 +85,7 @@ export async function extractStandardQuote(input: {
 }
 
 const NUMERIC: QuoteKey[] = ["fee", "turnaroundDays", "depreciableBasis", "regularDepreciation", "reclassifiedPct", "firstYearDeduction",
-  "increasedDeduction", "acceleratedAmount", "firstYearTaxSavings", "assumedTaxRate", "validDays"];
+  "increasedDeduction", "acceleratedAmount", "firstYearTaxSavings", "firstYearTaxSavingsHigh", "assumedTaxRate", "validDays"];
 
 /**
  * Combines what the supplier typed with what the AI read. The supplier's own
@@ -142,12 +144,12 @@ export async function standardizeQuote(quoteId: string) {
 
 // ---------- Comparison summary ----------
 
-export type ComparisonColumn = { name: string; values: QuoteValues & { savingsPerDollar?: number | null } };
+export type ComparisonColumn = { name: string; values: QuoteValues & { savingsPerDollar?: number | null; savingsPerDollarHigh?: number | null } };
 
 export async function writeComparisonSummary(deal: { property_type: string; purchase_price: unknown; placed_in_service: unknown }, cols: ComparisonColumn[]) {
   const table = cols.map(c => ({
     provider: c.name,
-    ...Object.fromEntries(COMPARISON_ROWS.map(r => [r.label, formatValue((c.values as any)[r.key], r.kind)])),
+    ...Object.fromEntries(COMPARISON_ROWS.map(r => [r.label, cellText(c.values as any, r)])),
   }));
   const res = await anthropic().beta.messages.create({
     model: config.anthropic.model,
@@ -157,7 +159,7 @@ export async function writeComparisonSummary(deal: { property_type: string; purc
       role: "user",
       content: `Property: ${deal.property_type}, purchase price ${deal.purchase_price == null ? "not given" : "$" + Math.round(Number(deal.purchase_price)).toLocaleString("en-US")}.
 
-Write the summary in 4 to 5 sentences. Start with one sentence that names the provider we recommend and why, for example "Our pick: X, because ...". Then cover the fee range, the range of estimated first-year tax benefit, and any difference that matters (a desktop study versus a full engineering study with a site visit, weaker audit support, or providers using a different depreciable basis or tax rate, which makes their benefit figures not directly comparable). Use only the figures below and never invent a number. A value of "—" means the provider did not state it. Plain sentences only, no headings or bullet points.
+Write the summary in 4 to 5 sentences. Start with one sentence that names the provider we recommend and why, for example "Our pick: X, because ...". Then cover the fee range, the range of estimated first-year tax benefit, and any difference that matters (a desktop study versus a full engineering study with a site visit, weaker audit support, or providers using a different depreciable basis or tax rate, which makes their benefit figures not directly comparable). A tax benefit marked as tax on all year-1 depreciation includes depreciation the client would get with no study, so never call it larger than another provider's benefit and never base the recommendation on it. Use only the figures below and never invent a number. A value of "—" means the provider did not state it. Plain sentences only, no headings or bullet points.
 
 ${JSON.stringify(table, null, 1)}`,
     }],

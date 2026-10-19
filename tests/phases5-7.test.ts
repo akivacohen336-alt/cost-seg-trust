@@ -265,6 +265,7 @@ describe("phase 6: AI standardization", () => {
     firstYearDeduction: 480000, firstYearTaxSavings: 177600, assumedTaxRate: 37, auditSupport: "Audit defense, 3 years",
     includesLookback: true, paymentTerms: "Due on delivery", validDays: 30,
     depreciableBasis: null, regularDepreciation: null, increasedDeduction: null, acceleratedAmount: null, scopeOfWork: "Desktop study and report",
+    firstYearTaxSavingsHigh: null, taxBenefitOn: "extra",
     inclusions: ["Bonus depreciation schedule"], exclusions: ["Travel billed separately"], caveats: ["Assumes 20% land allocation"],
   };
 

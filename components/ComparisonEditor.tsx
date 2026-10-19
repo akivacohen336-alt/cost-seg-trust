@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { approveAndSendAction, buildComparisonAction, generatePdfAction, saveComparisonAction, unlockAction } from "@/app/admin/deal-actions";
-import { deriveValues, formatValue, savingsPerDollar, STUDY_TYPES } from "@/lib/quote-fields";
+import { bestValues, cellText, deriveValues, formatValue, STUDY_TYPES, withRatios } from "@/lib/quote-fields";
 
 type Quote = { inviteId: string; supplier: string; values: Record<string, any>; aiFilled: string[]; mismatches: any[]; notes: any };
 type Row = { key: string; label: string; kind: string; best?: "min" | "max" };
@@ -34,15 +34,10 @@ export default function ComparisonEditor(p: {
   // What the client will see, live as you edit.
   const columns = useMemo(() => p.quotes.filter(q => !e.hiddenInvites.includes(q.inviteId)).map((q, i) => {
     const { values, calculated } = deriveValues({ ...q.values, ...(e.overrides[q.inviteId] ?? {}) });
-    return { ...q, calculated: calculated as string[], values: { ...values, savingsPerDollar: savingsPerDollar(values) } as Record<string, any>, name: e.anonymize ? `Provider ${String.fromCharCode(65 + i)}` : q.supplier };
+    return { ...q, calculated: calculated as string[], values: withRatios(values) as Record<string, any>, name: e.anonymize ? `Provider ${String.fromCharCode(65 + i)}` : q.supplier };
   }), [p.quotes, e]);
   const rows = p.rows.filter(r => !e.hiddenRows.includes(r.key));
-  const best: Record<string, number> = {};
-  for (const r of rows) {
-    if (!r.best) continue;
-    const nums = columns.map(c => Number(c.values[r.key])).filter(n => isFinite(n) && n > 0);
-    if (nums.length > 1) best[r.key] = r.best === "min" ? Math.min(...nums) : Math.max(...nums);
-  }
+  const best = bestValues(columns, rows);
 
   function setCell(inviteId: string, key: string, raw: string) {
     const kind = kindOf(key);
@@ -98,7 +93,7 @@ export default function ComparisonEditor(p: {
                       <td key={c.inviteId} className="num" style={isBest ? { background: "var(--good)", color: "var(--good-ink)", fontWeight: 700 } : undefined}>
                         {isEditing ? cellEditor(c, r) : (
                           <span onClick={() => editable && setEditing(`${c.inviteId}:${r.key}`)} style={editable ? { cursor: "text", borderBottom: "1px dashed var(--line)" } : undefined}>
-                            {formatValue(c.values[r.key], r.kind)}
+                            {cellText(c.values, r)}
                           </span>
                         )}
                         {overridden ? <span className="small muted"> · edited</span> : c.calculated.includes(r.key) ? <span className="small muted"> · calculated</span> : c.aiFilled.includes(r.key) ? <span className="small muted"> · AI</span> : null}

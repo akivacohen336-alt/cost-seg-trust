@@ -59,7 +59,10 @@ export default function SupplierQuoteForm({ token }: { token: string }) {
           {num("firstYearDeduction", "Year-1 depreciation with the study ($)", "accelerated, incl. bonus")}
           {num("acceleratedAmount", "Total moved to 5, 7 and 15-year ($)")}
           {num("reclassifiedPct", "% of basis reclassified")}
-          {num("firstYearTaxSavings", "Est. first-year tax benefit ($)")}
+          {num("firstYearTaxSavings", "Est. first-year tax benefit ($)", "conservative, if a range")}
+          {num("firstYearTaxSavingsHigh", "High end of the tax benefit ($)", "only if you give a range")}
+          <label className="field">The tax benefit is figured on<select name="taxBenefitOn" defaultValue=""><option value="">Select</option>
+            <option value="extra">The extra deduction from the study only</option><option value="total">All year-1 depreciation (incl. straight-line)</option></select></label>
           {num("assumedTaxRate", "Assumed tax rate (%)")}
           <label className="field">Scope of work<input type="text" name="scopeOfWork" placeholder="e.g. Engineering-based study, on-site inspection, report and CPA review" /></label>
           <label className="field">Audit support<input type="text" name="auditSupport" placeholder="e.g. Full audit defense included" /></label>

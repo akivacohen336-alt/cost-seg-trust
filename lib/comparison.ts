@@ -5,7 +5,7 @@ import { fallbackSummary, writeComparisonSummary, type ComparisonColumn } from "
 import { loadDeal, setDealStage } from "./deals";
 import { emailHtml, esc, sendEmail } from "./notify";
 import { renderComparisonPdf } from "./pdf";
-import { COMPARISON_ROWS, QUOTE_FIELDS, type ComparisonRow, deriveValues, rowToValues, savingsPerDollar, type QuoteKey, type QuoteValues } from "./quote-fields";
+import { COMPARISON_ROWS, QUOTE_FIELDS, type ComparisonRow, bestValues, deriveValues, rowToValues, withRatios, type QuoteKey, type QuoteValues } from "./quote-fields";
 
 export type ComparisonView = {
   comparison: any;
@@ -38,16 +38,11 @@ export async function loadComparison(dealId: string): Promise<ComparisonView | n
     return {
       inviteId: q.inviteId, aiFilled: q.aiFilled, calculated,
       name: comparison.anonymize ? `Provider ${String.fromCharCode(65 + i)}` : q.supplier,
-      values: { ...values, savingsPerDollar: savingsPerDollar(values) },
+      values: withRatios(values),
     };
   });
   const rowsShown = COMPARISON_ROWS.filter(r => !(comparison.hidden_rows ?? []).includes(r.key));
-  const best: Record<string, number> = {};
-  for (const r of rowsShown) {
-    if (!r.best) continue;
-    const nums = columns.map(c => Number((c.values as any)[r.key])).filter(n => isFinite(n) && n > 0);
-    if (nums.length > 1) best[r.key] = r.best === "min" ? Math.min(...nums) : Math.max(...nums);
-  }
+  const best = bestValues(columns, rowsShown);
   return { comparison, deal, quotes, columns, rows: rowsShown, best };
 }
 

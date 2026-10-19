@@ -1,7 +1,7 @@
 // Branded one-page Cost Seg Trust comparison (US Letter, landscape), built with pdf-lib.
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
 import type { ComparisonView } from "./comparison";
-import { formatValue } from "./quote-fields";
+import { cellText, formatValue } from "./quote-fields";
 
 const NAVY = rgb(15 / 255, 42 / 255, 68 / 255);
 const GREEN = rgb(16 / 255, 185 / 255, 129 / 255);
@@ -78,9 +78,9 @@ export async function renderComparisonPdf(view: ComparisonView): Promise<Uint8Ar
   const cols = view.columns;
   const n = Math.max(cols.length, 1);
   const labelW = 170, colW = (W - 2 * M - labelW) / n;
-  const rows = view.rows.filter(r => cols.some(c => formatValue((c.values as any)[r.key], r.kind) !== "—"));
+  const rows = view.rows.filter(r => cols.some(c => cellText(c.values as any, r) !== "—"));
   const cell = (c: (typeof cols)[number], r: (typeof rows)[number]) => {
-    const v = formatValue((c.values as any)[r.key], r.kind);
+    const v = cellText(c.values as any, r);
     return v === "—" ? "Not stated" : v + (c.calculated.includes(r.key as any) ? " *" : "");
   };
   // Notes shown under the table, numbered in the order their rows appear.

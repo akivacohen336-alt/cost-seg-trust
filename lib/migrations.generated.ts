@@ -45,6 +45,10 @@ export const MIGRATIONS: { name: string; sql: string }[] = [
     "sql": "-- The one-pager items the CEO asked for (Oct 19): regular vs accelerated\n-- first-year depreciation, the total moved to short lives, the basis the\n-- provider used, and the scope of work.\nalter table supplier_quotes add column if not exists regular_first_year_depreciation numeric(14,2);\nalter table supplier_quotes add column if not exists increased_deduction numeric(14,2);\nalter table supplier_quotes add column if not exists accelerated_amount numeric(14,2);\nalter table supplier_quotes add column if not exists depreciable_basis numeric(14,2);\nalter table supplier_quotes add column if not exists scope_of_work text;\n"
   },
   {
+    "name": "012_tax_benefit_range.sql",
+    "sql": "-- A provider may give a range (conservative to high end), and may figure its\n-- tax benefit on the extra deduction from the study or on all year-1\n-- depreciation. Only the first kind can be compared across providers.\nalter table supplier_quotes add column if not exists est_first_year_tax_savings_high numeric(14,2);\nalter table supplier_quotes add column if not exists tax_benefit_on text check (tax_benefit_on in ('extra','total'));\n"
+  },
+  {
     "name": "seed_test_suppliers.sql",
     "sql": "-- Test suppliers for safe end-to-end testing. Their emails use \"+\" addressing,\n-- so anything \"sent to a supplier\" lands in the owner's own Gmail inbox.\n-- Real suppliers are added later from the admin Suppliers page.\ninsert into suppliers (company_name, contact_name, email, description, is_test) values\n  ('Test Supplier A', 'Test Contact A', 'akivacohen336+supplier-a@gmail.com', 'Test only: full engineering studies', true),\n  ('Test Supplier B', 'Test Contact B', 'akivacohen336+supplier-b@gmail.com', 'Test only: desktop studies', true),\n  ('Test Supplier C', 'Test Contact C', 'akivacohen336+supplier-c@gmail.com', 'Test only: residential and STR', true)\non conflict (email) do nothing;\n"
   }
