@@ -3,8 +3,8 @@ import { STAGES, stageLabel } from "@/lib/stages";
 export const usd = (n: unknown) => (n == null || n === "" ? "—" : "$" + Math.round(Number(n)).toLocaleString("en-US"));
 export const dateTime = (d: Date | string) =>
   new Date(d).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short", timeZone: "America/New_York" });
-export const dateOnly = (d: Date | string) =>
-  (d instanceof Date ? d.toISOString() : String(d)).slice(0, 10);
+export const dateOnly = (d: Date | string | null) =>
+  d == null ? "—" : (d instanceof Date ? d.toISOString() : String(d)).slice(0, 10);
 
 const tone: Record<string, string> = {
   new_request: "warn", waiting_on_quotes: "info", quotes_received: "good", comparison_ready: "good",

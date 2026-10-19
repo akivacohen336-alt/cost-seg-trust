@@ -33,6 +33,10 @@ export const MIGRATIONS: { name: string; sql: string }[] = [
     "sql": "-- A referred client stays with the partner who first referred them: later\n-- deals from the same client are credited to that partner automatically.\nalter table clients add column if not exists partner_id uuid references partners(id) on delete set null;\nupdate clients c set partner_id = (\n  select d.partner_id from deals d where d.client_id = c.id and d.partner_id is not null order by d.created_at limit 1)\nwhere c.partner_id is null;\n"
   },
   {
+    "name": "009_external_leads.sql",
+    "sql": "-- Leads from the main website (costsegtrust.com, built in Lovable) may not\n-- include every property fact. A deal can be saved without the purchase\n-- price or in-service date; Akiva fills them in before sending to suppliers.\nalter table deals alter column purchase_price drop not null;\nalter table deals alter column placed_in_service drop not null;\n"
+  },
+  {
     "name": "seed_test_suppliers.sql",
     "sql": "-- Test suppliers for safe end-to-end testing. Their emails use \"+\" addressing,\n-- so anything \"sent to a supplier\" lands in the owner's own Gmail inbox.\n-- Real suppliers are added later from the admin Suppliers page.\ninsert into suppliers (company_name, contact_name, email, description, is_test) values\n  ('Test Supplier A', 'Test Contact A', 'akivacohen336+supplier-a@gmail.com', 'Test only: full engineering studies', true),\n  ('Test Supplier B', 'Test Contact B', 'akivacohen336+supplier-b@gmail.com', 'Test only: desktop studies', true),\n  ('Test Supplier C', 'Test Contact C', 'akivacohen336+supplier-c@gmail.com', 'Test only: residential and STR', true)\non conflict (email) do nothing;\n"
   }

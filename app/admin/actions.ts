@@ -98,3 +98,22 @@ export async function sendTestAlert(): Promise<{ ok: boolean; message: string }>
   });
   return { ok: email.status === "sent", message: `Email ${email.status === "sent" ? `sent to ${config.owner.emails.join(" and ")}` : `${email.status}${email.error ? ` (${email.error})` : ""}`}.` };
 }
+
+/** Fills in a purchase price or in-service date a website lead arrived without. */
+export async function setDealFacts(form: FormData) {
+  await requireAdmin();
+  const dealId = String(form.get("dealId"));
+  if (!/^[0-9a-f-]{36}$/i.test(dealId)) return;
+  const price = Number(String(form.get("purchasePrice") ?? "").replace(/[$,\s]/g, ""));
+  const date = String(form.get("placedInService") ?? "");
+  const okPrice = String(form.get("purchasePrice") ?? "").trim() !== "" && isFinite(price) && price > 0 && price <= 1e10;
+  const okDate = /^\d{4}-\d{2}-\d{2}$/.test(date);
+  if (!okPrice && !okDate) return;
+  await db()`update deals set
+    purchase_price = coalesce(${okPrice ? price : null}::numeric, purchase_price),
+    placed_in_service = coalesce(${okDate ? date : null}::date, placed_in_service)
+    where id = ${dealId}`;
+  await logEvent(dealId, "facts_updated", { ...(okPrice ? { purchasePrice: price } : {}), ...(okDate ? { placedInService: date } : {}) });
+  revalidatePath(`/admin/deals/${dealId}`);
+  revalidatePath("/admin");
+}

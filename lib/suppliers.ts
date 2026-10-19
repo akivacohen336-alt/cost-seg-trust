@@ -11,7 +11,7 @@ export const hashToken = (t: string) => createHash("sha256").update(t).digest("h
 const newToken = () => randomBytes(32).toString("base64url");
 export const supplierLink = (token: string) => `${config.appUrl}/q/${token}`;
 const dealLink = (id: string) => `${config.appUrl}/admin/deals/${id}`;
-const fmtDate = (v: Date | string) => (v instanceof Date ? v.toISOString() : String(v)).slice(0, 10);
+const fmtDate = (v: Date | string | null) => (v == null ? "Not provided" : (v instanceof Date ? v.toISOString() : String(v)).slice(0, 10));
 const dueText = (d: Date) =>
   d.toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: "America/New_York", timeZoneName: "short" });
 
@@ -73,6 +73,9 @@ export async function sendDealToSuppliers(dealId: string, supplierIds: string[])
   if (unique.length === 0) return { invited: 0, skipped: 0, error: "Pick at least one supplier." };
   if (unique.length > room) return { invited: 0, skipped: 0, error: `Up to ${config.maxSuppliersPerDeal} suppliers per deal. You can add ${Math.max(room, 0)} more.` };
 
+  if (d.purchase_price == null || d.placed_in_service == null) {
+    return { invited: 0, skipped: 0, error: "Add the purchase price and in-service date to this deal first." };
+  }
   const suppliers = await sql`select * from suppliers where id = any(${unique}::uuid[]) and active`;
   // Real suppliers only ever hear about real website requests.
   if (d.is_test && suppliers.some((s: any) => !s.is_test)) {

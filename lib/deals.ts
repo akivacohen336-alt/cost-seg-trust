@@ -7,26 +7,33 @@ import { cityState, splitName, type QuoteRequest } from "./validation";
 
 export type CreateResult = { dealId: string; number: number; duplicate: boolean };
 
+/** A quote request from our own form, or a lead from the main website that may lack some property facts. */
+export type DealInput = Omit<QuoteRequest, "propertyType" | "purchasePrice" | "placedInService" | "phone" | "consent" | "website"> & {
+  propertyType: string; purchasePrice?: number; placedInService?: string; phone?: string;
+  isTest?: boolean; source?: string;
+};
+
 /** Saves a quote request. Idempotent on requestKey: a repeat returns the original deal. */
-export async function createDealFromRequest(r: QuoteRequest): Promise<CreateResult> {
+export async function createDealFromRequest(r: DealInput): Promise<CreateResult> {
   const { first, last } = splitName(r.fullName);
   return db().begin(async tx => {
     const [client] = await tx`
       insert into clients (email, first_name, last_name, phone)
-      values (${r.email}, ${first}, ${last}, ${r.phone})
-      on conflict (email) do update set first_name = excluded.first_name, last_name = excluded.last_name, phone = excluded.phone
+      values (${r.email}, ${first}, ${last}, ${r.phone ?? null})
+      on conflict (email) do update set first_name = excluded.first_name, last_name = excluded.last_name,
+        phone = coalesce(excluded.phone, clients.phone)
       returning id, partner_id`;
     // The partner who first referred this client keeps them; otherwise the partner link used now, if any.
     const partnerId = client.partner_id ?? (r.ref ? (await tx`select id from partners where code = ${r.ref} and active`)[0]?.id ?? null : null);
     const [deal] = await tx`
       insert into deals (request_key, client_id, property_address, property_city_state, property_type, purchase_price,
         placed_in_service, land_value, renovation_spend, has_cpa, client_notes, consent_contact, consent_at,
-        utm_source, utm_medium, utm_campaign, partner_id)
+        utm_source, utm_medium, utm_campaign, partner_id, is_test)
       values (${r.requestKey}, ${client.id}, ${r.propertyAddress}, ${cityState(r.propertyAddress)}, ${r.propertyType},
-        ${r.purchasePrice}, ${r.placedInService}, ${r.landValue ?? null}, ${r.renovationSpend ?? null},
+        ${r.purchasePrice ?? null}, ${r.placedInService ?? null}, ${r.landValue ?? null}, ${r.renovationSpend ?? null},
         ${r.hasCpa ? r.hasCpa === "yes" : null}, ${r.notes ?? null}, true, now(),
         ${r.utmSource ?? null}, ${r.utmMedium ?? null}, ${r.utmCampaign ?? null},
-        ${partnerId})
+        ${partnerId}, ${r.isTest ?? false})
       on conflict (request_key) do nothing
       returning id, number, partner_id`;
     if (!deal) {
@@ -34,7 +41,7 @@ export async function createDealFromRequest(r: QuoteRequest): Promise<CreateResu
       return { dealId: existing.id, number: existing.number, duplicate: true };
     }
     if (partnerId && !client.partner_id) await tx`update clients set partner_id = ${partnerId} where id = ${client.id}`;
-    await tx`insert into deal_events (deal_id, kind, detail) values (${deal.id}, 'created', ${tx.json({ source: r.utmSource ?? "website", ...(partnerId ? { partner: client.partner_id ? "returning client" : r.ref } : {}) })})`;
+    await tx`insert into deal_events (deal_id, kind, detail) values (${deal.id}, 'created', ${tx.json({ source: r.source ?? r.utmSource ?? "website", ...(r.isTest ? { test: true } : {}), ...(partnerId ? { partner: client.partner_id ? "returning client" : r.ref } : {}) })})`;
     return { dealId: deal.id, number: deal.number, duplicate: false };
   });
 }
@@ -46,11 +53,11 @@ export async function afterDealCreated(dealId: string) {
   const results = await Promise.allSettled([
     notifyOwnerOfNewDeal({
       id: d.id, number: d.number, clientName: `${d.first_name} ${d.last_name}`.trim(), email: d.email, phone: d.phone,
-      propertyType: d.property_type, address: d.property_address, purchasePrice: Number(d.purchase_price),
+      propertyType: d.property_type, address: d.property_address, purchasePrice: d.purchase_price == null ? null : Number(d.purchase_price),
       placedInService: fmtDate(d.placed_in_service), landValue: d.land_value,
       renovationSpend: d.renovation_spend == null ? null : Number(d.renovation_spend), hasCpa: d.has_cpa, notes: d.client_notes,
       utm: [d.utm_source, d.utm_medium, d.utm_campaign].filter(Boolean).join(" / ") || null,
-      partner: partnerName(d),
+      partner: partnerName(d), isTest: d.is_test,
     }).then(async r => {
       await logEvent(dealId, "owner_notified", { email: r.email.status });
     }),
@@ -71,7 +78,7 @@ export async function loadDeal(dealId: string): Promise<any> {
 export const partnerName = (d: { partner_name?: string | null; partner_company?: string | null }) =>
   d.partner_name ? `${d.partner_name}${d.partner_company ? ` (${d.partner_company})` : ""}` : null;
 
-const fmtDate = (v: Date | string) => (v instanceof Date ? v.toISOString().slice(0, 10) : String(v).slice(0, 10));
+const fmtDate = (v: Date | string | null) => (v == null ? "—" : v instanceof Date ? v.toISOString().slice(0, 10) : String(v).slice(0, 10));
 
 export function hubspotDealName(d: { number: number; property_type: string; property_address: string }) {
   return `CST-${d.number} · ${d.property_type} · ${d.property_address}`;
