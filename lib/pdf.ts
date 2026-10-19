@@ -73,7 +73,9 @@ export async function renderComparisonPdf(view: ComparisonView): Promise<Uint8Ar
   const facts = [d.property_type, `Purchase price ${formatValue(d.purchase_price, "money")}`];
   if (d.placed_in_service != null) facts.push(`Placed in service ${longDate(d.placed_in_service)}`);
   right(page, facts.join("  |  "), H - 50, 9, reg, rgb(0.85, 0.89, 0.93));
-  right(page, `Prepared for ${d.first_name} ${d.last_name}`.trim() + `  |  CST-${d.number}  |  ${new Date().toLocaleDateString("en-US", { dateStyle: "long", timeZone: "America/New_York" })}`, H - 62, 9, reg, rgb(0.85, 0.89, 0.93));
+  const client = `${d.first_name ?? ""} ${d.last_name ?? ""}`.trim();
+  const meta = [client ? `Prepared for ${client}` : "", `CST-${d.number}`, new Date().toLocaleDateString("en-US", { dateStyle: "long", timeZone: "America/New_York" })];
+  right(page, meta.filter(Boolean).join("  |  "), H - 62, 9, reg, rgb(0.85, 0.89, 0.93));
 
   // Table: rows no provider filled in are left out, and the type shrinks
   // until the table and summary fit on the one page.
