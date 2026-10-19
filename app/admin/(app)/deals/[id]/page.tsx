@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { loadDeal, partnerName } from "@/lib/deals";
 import { STAGES, stageLabel } from "@/lib/stages";
-import { changeStage, retryHubSpot, saveNotes } from "../../../actions";
+import { changeStage, retryHubSpot, saveNotes, setDealFacts } from "../../../actions";
 import { setDealPartner } from "../../../partner-actions";
 import { StagePill, StageSteps, SyncPill, dateOnly, dateTime, usd } from "@/components/ui";
 import { BuildComparisonButton, InviteActions, SendToSuppliersForm } from "@/components/SupplierActions";
@@ -100,6 +100,15 @@ export default async function DealPage({ params }: { params: Promise<{ id: strin
           </dd></div>
           <div><dt>Contact consent</dt><dd>{d.consent_contact ? `Yes, ${dateTime(d.consent_at)}` : "No"}</dd></div>
         </dl>
+        {d.purchase_price == null || d.placed_in_service == null ? (
+          <form action={setDealFacts} className="row" style={{ gap: 8, alignItems: "end", flexWrap: "wrap" }}>
+            <input type="hidden" name="dealId" value={d.id} />
+            <p className="small" style={{ margin: 0, flexBasis: "100%" }}><span className="pill warn">Missing details</span> This lead came from the main website without everything suppliers need. Fill these in before sending it out.</p>
+            {d.purchase_price == null ? <label className="field">Purchase price ($)<input type="text" inputMode="decimal" name="purchasePrice" placeholder="1,250,000" /></label> : null}
+            {d.placed_in_service == null ? <label className="field">Placed-in-service date<input type="date" name="placedInService" /></label> : null}
+            <button className="btn sm" type="submit">Save</button>
+          </form>
+        ) : null}
         {d.client_notes ? <p style={{ margin: 0 }}><b>Client notes:</b> {d.client_notes}</p> : null}
       </div>
 

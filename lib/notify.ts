@@ -44,10 +44,11 @@ export const usd = (n: number | string | null | undefined) =>
 
 export type NewDealSummary = {
   id: string; number: number; clientName: string; email: string; phone: string;
-  propertyType: string; address: string; purchasePrice: number; placedInService: string;
+  propertyType: string; address: string; purchasePrice: number | null; placedInService: string;
   landValue?: string | null; renovationSpend?: number | null; hasCpa?: boolean | null; notes?: string | null;
   utm?: string | null;
   partner?: string | null;
+  isTest?: boolean;
 };
 
 export async function notifyOwnerOfNewDeal(d: NewDealSummary) {
@@ -60,6 +61,7 @@ export async function notifyOwnerOfNewDeal(d: NewDealSummary) {
     ["Renovation spend", d.renovationSpend ? usd(d.renovationSpend) : "—"],
     ["Has a CPA", d.hasCpa == null ? "—" : d.hasCpa ? "Yes" : "No"], ["Notes", d.notes || "—"],
     ["Source", d.utm || "Website (direct)"],
+    ...(d.isTest ? [["Test", "Marked as a test: it can only go to test suppliers"] as [string, string]] : []),
     ...(d.partner ? [["Referred by", d.partner] as [string, string]] : []),
   ];
   const html = `<div style="font-family:Arial,sans-serif;color:#1F2937;max-width:560px">

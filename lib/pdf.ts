@@ -60,7 +60,7 @@ export async function renderComparisonPdf(view: ComparisonView): Promise<Uint8Ar
   const d = view.deal;
   const addr = wrap(d.property_address, bold, 12, 380, 1)[0];
   right(page, addr, H - 34, 12, bold, rgb(1, 1, 1));
-  right(page, `${d.property_type}  |  Purchase price ${formatValue(d.purchase_price, "money")}  |  Placed in service ${String(d.placed_in_service instanceof Date ? d.placed_in_service.toISOString() : d.placed_in_service).slice(0, 10)}`, H - 50, 9, reg, rgb(0.85, 0.89, 0.93));
+  right(page, `${d.property_type}  |  Purchase price ${formatValue(d.purchase_price, "money")}  |  Placed in service ${d.placed_in_service == null ? "—" : String(d.placed_in_service instanceof Date ? d.placed_in_service.toISOString() : d.placed_in_service).slice(0, 10)}`, H - 50, 9, reg, rgb(0.85, 0.89, 0.93));
   right(page, `Prepared for ${d.first_name} ${d.last_name}`.trim() + `  |  CST-${d.number}  |  ${new Date().toLocaleDateString("en-US", { dateStyle: "long", timeZone: "America/New_York" })}`, H - 62, 9, reg, rgb(0.85, 0.89, 0.93));
 
   // Table

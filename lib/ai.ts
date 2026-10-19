@@ -147,7 +147,7 @@ export async function writeComparisonSummary(deal: { property_type: string; purc
     system: "You write short, plain-English summaries for Cost Seg Trust's one-page cost segregation quote comparisons. The reader is a real estate investor, and often their CPA. Be factual and neutral. You are not giving tax advice.",
     messages: [{
       role: "user",
-      content: `Property: ${deal.property_type}, purchase price $${Math.round(Number(deal.purchase_price)).toLocaleString("en-US")}.
+      content: `Property: ${deal.property_type}, purchase price ${deal.purchase_price == null ? "not given" : "$" + Math.round(Number(deal.purchase_price)).toLocaleString("en-US")}.
 
 Write a 3 to 4 sentence summary of these quotes: the fee range, the range of estimated first-year tax savings, which provider offers the most estimated savings per dollar of fee, which is fastest, and any difference that matters (for example a desktop study versus a full engineering study with a site visit, or weaker audit support). Use only the figures below, and never invent a number. Plain sentences only, no headings or bullet points.
 
