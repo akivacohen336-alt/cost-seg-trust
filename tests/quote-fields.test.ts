@@ -15,8 +15,8 @@ describe("one-pager numbers worked out only from a provider's own figures", () =
     expect(calculated).toEqual([]);
   });
 
-  it("fills the accelerated dollars and percent from each other", () => {
-    expect(deriveValues({ depreciableBasis: 1_000_000, reclassifiedPct: 25 }).values.acceleratedAmount).toBe(250_000);
+  it("fills the percent from exact dollars, never dollars from a rounded percent", () => {
+    expect(deriveValues({ depreciableBasis: 1_000_000, reclassifiedPct: 25 }).values.acceleratedAmount).toBeUndefined(); // a rounded percent never becomes dollars
     expect(deriveValues({ depreciableBasis: 1_000_000, acceleratedAmount: 300_000 }).values.reclassifiedPct).toBe(30);
   });
 

@@ -351,7 +351,8 @@ describe("phase 7: comparison, approval, PDF, client", () => {
     expect(view.comparison.summary).toBe("Two quotes came in.");
     expect(view.columns.map(c => c.name)).toEqual(["Test Supplier A", "Test Supplier B"]);
     expect(view.best.fee).toBe(3200);
-    expect(view.best.firstYearTaxSavings).toBe(207200);
+    expect(view.best.firstYearTaxSavings).toBeUndefined(); // benefits sit on different bases, so they are never ranked
+    expect(view.best.savingsPerDollar).toBeGreaterThan(0);
     const summaryCall = fake.state.ai.at(-1);
     expect(summaryCall.body.output_config.effort).toBe("low");
     expect(JSON.stringify(summaryCall.body)).not.toContain("dana.client@example.com");

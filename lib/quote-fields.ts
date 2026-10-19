@@ -30,21 +30,26 @@ export type QuoteValues = { [K in QuoteKey]?: number | string | boolean | null }
 
 /**
  * Rows on the comparison, in order. The first seven are the items the CEO
- * asked every one-pager to show. `best` marks which value wins a row.
+ * asked every one-pager to show. Only rows that compare like with like get a
+ * winner (`best`): providers estimate benefits on their own basis and tax
+ * rate, so the benefit rows carry a note instead of a highlight.
  */
-export const COMPARISON_ROWS: { key: QuoteKey | "savingsPerDollar"; label: string; kind: QuoteFieldKind | "ratio" | "days"; best?: "min" | "max" }[] = [
-  { key: "firstYearTaxSavings", label: "First-year tax benefit", kind: "money", best: "max" },
-  { key: "regularDepreciation", label: "Regular depreciation (year 1, no study)", kind: "money" },
-  { key: "firstYearDeduction", label: "Accelerated depreciation (year 1, with study)", kind: "money", best: "max" },
+export type ComparisonRow = { key: QuoteKey | "savingsPerDollar"; label: string; kind: QuoteFieldKind | "ratio" | "days"; best?: "min" | "max"; note?: string };
+export const BASIS_NOTE = "Each provider's own estimate, on its own depreciable basis and tax rate (see those rows). Different land values account for much of the gap, not only a better study.";
+export const YEAR1_NOTE = "With 100% bonus, year-1 depreciation with the study = basis moved to 5, 7 and 15-year property + regular depreciation on the rest.";
+export const COMPARISON_ROWS: ComparisonRow[] = [
+  { key: "firstYearTaxSavings", label: "First-year tax benefit", kind: "money", note: BASIS_NOTE },
+  { key: "regularDepreciation", label: "Regular depreciation (year 1, without a study)", kind: "money" },
+  { key: "firstYearDeduction", label: "Total year-1 depreciation with the study", kind: "money", note: YEAR1_NOTE },
   { key: "fee", label: "Cost of service", kind: "money", best: "min" },
   { key: "scopeOfWork", label: "Scope of work", kind: "text" },
   { key: "siteVisit", label: "In-person site visit", kind: "bool" },
-  { key: "acceleratedAmount", label: "Overall accelerated (moved to 5, 7, 15-yr)", kind: "money", best: "max" },
-  { key: "reclassifiedPct", label: "% of basis accelerated", kind: "pct", best: "max" },
-  { key: "increasedDeduction", label: "Extra year-1 deduction from the study", kind: "money", best: "max" },
+  { key: "acceleratedAmount", label: "Basis moved to 5, 7 and 15-year property", kind: "money", note: YEAR1_NOTE },
+  { key: "reclassifiedPct", label: "% of basis moved", kind: "pct" },
+  { key: "increasedDeduction", label: "Extra year-1 deduction vs. no study", kind: "money", note: BASIS_NOTE },
   { key: "depreciableBasis", label: "Depreciable basis used", kind: "money" },
   { key: "assumedTaxRate", label: "Tax rate assumed", kind: "pct" },
-  { key: "savingsPerDollar", label: "Tax benefit per $1 of fee", kind: "ratio", best: "max" },
+  { key: "savingsPerDollar", label: "Tax benefit per $1 of fee", kind: "ratio", best: "max", note: BASIS_NOTE },
   { key: "turnaroundDays", label: "Turnaround", kind: "days", best: "min" },
   { key: "auditSupport", label: "Audit support", kind: "text" },
   { key: "includesLookback", label: "Look-back / 3115", kind: "bool" },
@@ -84,7 +89,7 @@ const has = (v: unknown) => v != null && v !== "" && isFinite(Number(v));
 /**
  * Fills a number a provider left out only when it is plain arithmetic on
  * numbers that same provider gave (accelerated = regular + extra deduction,
- * dollars = basis x percent). Nothing is estimated or assumed. Returns the
+ * percent = dollars / basis). Nothing is estimated, assumed or rounded in. Returns the
  * filled values and the keys that were calculated.
  */
 export function deriveValues(v: QuoteValues) {
@@ -100,9 +105,6 @@ export function deriveValues(v: QuoteValues) {
   }
   if (!has(out.increasedDeduction) && has(out.firstYearDeduction) && has(out.regularDepreciation)) {
     set("increasedDeduction", Number(out.firstYearDeduction) - Number(out.regularDepreciation));
-  }
-  if (!has(out.acceleratedAmount) && has(out.reclassifiedPct) && has(out.depreciableBasis)) {
-    set("acceleratedAmount", Number(out.depreciableBasis) * Number(out.reclassifiedPct) / 100);
   }
   if (!has(out.reclassifiedPct) && has(out.acceleratedAmount) && Number(out.depreciableBasis) > 0) {
     set("reclassifiedPct", Number(out.acceleratedAmount) / Number(out.depreciableBasis) * 100);

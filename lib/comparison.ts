@@ -5,14 +5,14 @@ import { fallbackSummary, writeComparisonSummary, type ComparisonColumn } from "
 import { loadDeal, setDealStage } from "./deals";
 import { emailHtml, esc, sendEmail } from "./notify";
 import { renderComparisonPdf } from "./pdf";
-import { COMPARISON_ROWS, QUOTE_FIELDS, deriveValues, rowToValues, savingsPerDollar, type QuoteKey, type QuoteValues } from "./quote-fields";
+import { COMPARISON_ROWS, QUOTE_FIELDS, type ComparisonRow, deriveValues, rowToValues, savingsPerDollar, type QuoteKey, type QuoteValues } from "./quote-fields";
 
 export type ComparisonView = {
   comparison: any;
   deal: any;
   quotes: { inviteId: string; supplier: string; values: QuoteValues; aiFilled: string[]; mismatches: any[]; hidden: boolean; notes: any }[];
   columns: (ComparisonColumn & { inviteId: string; aiFilled: string[]; calculated: QuoteKey[] })[];
-  rows: typeof COMPARISON_ROWS;
+  rows: ComparisonRow[];
   best: Record<string, number>;
 };
 

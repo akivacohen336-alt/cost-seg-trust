@@ -39,6 +39,14 @@ function wrap(text: string, font: PDFFont, size: number, width: number, maxLines
   return lines.length ? lines : [""];
 }
 
+const SUPERSCRIPT = ["\u00b9", "\u00b2", "\u00b3"];
+const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const longDate = (v: unknown) => {
+  const iso = v instanceof Date ? v.toISOString() : String(v);
+  const [y, m, d] = iso.slice(0, 10).split("-").map(Number);
+  return m ? `${MONTHS[m - 1]} ${d}, ${y}` : iso;
+};
+
 export async function renderComparisonPdf(view: ComparisonView): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
   doc.setTitle(`Cost Seg Trust comparison CST-${view.deal.number}`);
@@ -60,7 +68,9 @@ export async function renderComparisonPdf(view: ComparisonView): Promise<Uint8Ar
   const d = view.deal;
   const addr = wrap(d.property_address, bold, 12, 380, 1)[0];
   right(page, addr, H - 34, 12, bold, rgb(1, 1, 1));
-  right(page, `${d.property_type}  |  Purchase price ${formatValue(d.purchase_price, "money")}  |  Placed in service ${d.placed_in_service == null ? "—" : String(d.placed_in_service instanceof Date ? d.placed_in_service.toISOString() : d.placed_in_service).slice(0, 10)}`, H - 50, 9, reg, rgb(0.85, 0.89, 0.93));
+  const facts = [d.property_type, `Purchase price ${formatValue(d.purchase_price, "money")}`];
+  if (d.placed_in_service != null) facts.push(`Placed in service ${longDate(d.placed_in_service)}`);
+  right(page, facts.join("  |  "), H - 50, 9, reg, rgb(0.85, 0.89, 0.93));
   right(page, `Prepared for ${d.first_name} ${d.last_name}`.trim() + `  |  CST-${d.number}  |  ${new Date().toLocaleDateString("en-US", { dateStyle: "long", timeZone: "America/New_York" })}`, H - 62, 9, reg, rgb(0.85, 0.89, 0.93));
 
   // Table: rows no provider filled in are left out, and the type shrinks
@@ -69,8 +79,18 @@ export async function renderComparisonPdf(view: ComparisonView): Promise<Uint8Ar
   const n = Math.max(cols.length, 1);
   const labelW = 170, colW = (W - 2 * M - labelW) / n;
   const rows = view.rows.filter(r => cols.some(c => formatValue((c.values as any)[r.key], r.kind) !== "—"));
-  const cell = (c: (typeof cols)[number], r: (typeof rows)[number]) =>
-    formatValue((c.values as any)[r.key], r.kind) + (c.calculated.includes(r.key as any) ? " *" : "");
+  const cell = (c: (typeof cols)[number], r: (typeof rows)[number]) => {
+    const v = formatValue((c.values as any)[r.key], r.kind);
+    return v === "—" ? "Not stated" : v + (c.calculated.includes(r.key as any) ? " *" : "");
+  };
+  // Notes shown under the table, numbered in the order their rows appear.
+  const notes = [...new Set(rows.map(r => r.note).filter((n): n is string => !!n))];
+  const mark = (r: (typeof rows)[number]) => (r.note ? ` ${SUPERSCRIPT[notes.indexOf(r.note)] ?? ""}` : "");
+  const footLines = [
+    rows.some(r => r.best) ? "Green marks the lowest cost of service, the highest tax benefit per $1 of fee and the fastest turnaround. Other rows are not ranked." : "",
+    ...notes.map((n, i) => `${SUPERSCRIPT[i]} ${n}`),
+    cols.some(c => c.calculated.some(k => rows.some(r => r.key === k))) ? "* Added up or divided from that provider's own figures; nothing estimated." : "",
+  ].filter(Boolean).flatMap(l => wrap(l, reg, 7.5, W - 2 * M, 2));
   const summary = String(view.comparison.summary || "").trim();
   const layout = (size: number) => {
     const lh = size + 2.5, pad = size > 8 ? 6 : 4;
@@ -78,7 +98,7 @@ export async function renderComparisonPdf(view: ComparisonView): Promise<Uint8Ar
     const headH = Math.max(1, ...headLines.map(l => l.length)) * lh + 2 * pad;
     const body = rows.map(r => {
       const lines = cols.map(c => wrap(cell(c, r), reg, size, colW - 2 * pad, 3));
-      const labelLines = wrap(r.label, bold, size, labelW - 2 * pad, 2);
+      const labelLines = wrap(r.label + mark(r), bold, size, labelW - 2 * pad, 2);
       return { r, lines, labelLines, h: Math.max(labelLines.length, ...lines.map(l => l.length)) * lh + 2 * pad - 2 };
     });
     const sSize = Math.min(10, size + 0.5);
@@ -86,7 +106,7 @@ export async function renderComparisonPdf(view: ComparisonView): Promise<Uint8Ar
     const total = headH + body.reduce((a, b) => a + b.h, 0) + 22 + 26 + sLines.length * (sSize + 4);
     return { size, lh, pad, headLines, headH, body, sSize, sLines, total };
   };
-  const room = (H - 98) - 60;
+  const room = (H - 98) - 60 - footLines.length * 9;
   const base = n > 6 ? 7.5 : n > 4 ? 8.5 : 9.5;
   let L = layout(base);
   for (let s = base - 0.5; L.total > room && s >= 6.5; s -= 0.5) L = layout(s);
@@ -117,8 +137,7 @@ export async function renderComparisonPdf(view: ComparisonView): Promise<Uint8Ar
   page.drawRectangle({ x: M, y: y - 8 - sLines.length * sl, width: 3, height: 22 + sLines.length * sl, color: GREEN });
   text(page, "Summary", M + 12, y, 11.5, bold, NAVY);
   sLines.forEach((l, i) => text(page, l, M + 12, y - 18 - i * sl, sSize, reg));
-  const calcNote = cols.some(c => c.calculated.length) ? "  * Simple arithmetic on that provider's own figures (for example basis x percent)." : "";
-  text(page, "Green marks the best value in each row." + calcNote, M, 48, 7.5, reg, MUTED);
+  footLines.forEach((l, i) => text(page, l, M, 48 + (footLines.length - 1 - i) * 9, 7.5, reg, MUTED));
 
   // Footer on every page
   for (const p of doc.getPages()) {

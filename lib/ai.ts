@@ -157,7 +157,7 @@ export async function writeComparisonSummary(deal: { property_type: string; purc
       role: "user",
       content: `Property: ${deal.property_type}, purchase price ${deal.purchase_price == null ? "not given" : "$" + Math.round(Number(deal.purchase_price)).toLocaleString("en-US")}.
 
-Write a 3 to 4 sentence summary of these quotes: the fee range, the range of estimated first-year tax benefit, which provider offers the most estimated savings per dollar of fee, which is fastest, and any difference that matters (for example a desktop study versus a full engineering study with a site visit, or weaker audit support, or providers using a different depreciable basis or tax rate). Use only the figures below, and never invent a number. Plain sentences only, no headings or bullet points.
+Write the summary in 4 to 5 sentences. Start with one sentence that names the provider we recommend and why, for example "Our pick: X, because ...". Then cover the fee range, the range of estimated first-year tax benefit, and any difference that matters (a desktop study versus a full engineering study with a site visit, weaker audit support, or providers using a different depreciable basis or tax rate, which makes their benefit figures not directly comparable). Use only the figures below and never invent a number. A value of "—" means the provider did not state it. Plain sentences only, no headings or bullet points.
 
 ${JSON.stringify(table, null, 1)}`,
     }],
