@@ -1,5 +1,6 @@
 import { after } from "next/server";
 import AdminHeader from "@/components/AdminHeader";
+import { requireAdmin } from "@/lib/admin-auth";
 import { ensureSchema } from "@/lib/migrate";
 import { runDeadlines } from "@/lib/suppliers";
 
@@ -13,6 +14,7 @@ let lastRun = 0;
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   // Normally done at startup; retried here in case the database was unreachable then.
   await ensureSchema().catch(e => console.error("Database setup failed:", (e as Error).message));
+  await requireAdmin(); // a removed login is signed out on its next page
   if (Date.now() - lastRun > 10 * 60_000) {
     lastRun = Date.now();
     after(() => runDeadlines().catch(e => console.error("runDeadlines", e)));

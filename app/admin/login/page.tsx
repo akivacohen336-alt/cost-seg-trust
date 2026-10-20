@@ -17,6 +17,7 @@ export default function LoginPage() {
         <label className="field">Password<input type="password" name="password" autoComplete="current-password" required /></label>
         {state?.error ? <p className="notice bad" role="alert" style={{ margin: 0 }}>{state.error}</p> : null}
         <button className="btn primary" type="submit" disabled={pending}>{pending ? "Signing in…" : "Sign in"}</button>
+        <a className="small muted" href="/admin/forgot-password" style={{ textAlign: "center" }}>Forgot your password?</a>
       </form>
     </main>
   );

@@ -12,6 +12,7 @@ import { sendEmail } from "@/lib/notify";
 import { SESSION_COOKIE, createSessionToken, sessionCookieOptions } from "@/lib/session";
 import { requireAdmin } from "@/lib/admin-auth";
 import { isStageKey } from "@/lib/stages";
+import { checkTeamLogin } from "@/lib/team";
 
 
 export async function login(_: unknown, form: FormData): Promise<{ error?: string; email?: string }> {
@@ -20,7 +21,9 @@ export async function login(_: unknown, form: FormData): Promise<{ error?: strin
   if (!config.admin.passwordHash || !config.admin.sessionSecret) {
     return { email, error: "Admin login isn't set up yet. Add ADMIN_PASSWORD_HASH and SESSION_SECRET to the server settings." };
   }
-  const ok = email === config.admin.email.toLowerCase() && (await bcrypt.compare(password, config.admin.passwordHash));
+  const ok = email === config.admin.email.toLowerCase()
+    ? await bcrypt.compare(password, config.admin.passwordHash)
+    : await checkTeamLogin(email, password).catch(() => false);
   if (!ok) {
     await new Promise(r => setTimeout(r, 800)); // slow down guessing
     return { email, error: "That email and password don't match." };
