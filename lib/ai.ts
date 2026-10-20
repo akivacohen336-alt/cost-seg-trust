@@ -3,9 +3,10 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import { z } from "zod";
+import { verifyEvidence, type Evidence } from "./checks";
 import { config } from "./config";
 import { db, logEvent } from "./db";
-import { COMPARISON_ROWS, QUOTE_FIELDS, STUDY_TYPES, cellText, formatValue, rowToValues, type QuoteKey, type QuoteValues } from "./quote-fields";
+import { COMPARISON_ROWS, QUOTE_FIELDS, STUDY_TYPES, benefitNotComparable, cellText, formatValue, rowToValues, type QuoteKey, type QuoteValues } from "./quote-fields";
 
 let client: Anthropic | null = null;
 function anthropic() {
@@ -43,6 +44,11 @@ export const StandardQuoteSchema = z.object({
   inclusions: z.array(z.string()).describe("Notable inclusions, each under 12 words"),
   exclusions: z.array(z.string()).describe("Notable exclusions or extra charges, each under 12 words"),
   caveats: z.array(z.string()).describe("Assumptions or caveats that affect the estimates, each under 15 words"),
+  evidence: z.array(z.object({
+    field: z.string().describe("The field name, e.g. firstYearTaxSavings"),
+    quote: z.string().describe("Text copied character for character from the proposal that states this number, one line or less"),
+    page: z.number().nullable(),
+  })).describe("One entry for every number you return, quoting the proposal where it is stated"),
 });
 export type StandardQuote = z.infer<typeof StandardQuoteSchema>;
 
@@ -56,7 +62,9 @@ Rules:
 - Money is a plain number of US dollars (no symbols). Percentages are 0-100.
 - Keep the short text fields brief and neutral.
 - When the provider gives a range (conservative and high end), put the conservative figures in the main fields and the high-end figures in the matching ...High fields.
-- When the proposal covers several properties, use the portfolio totals.`;
+- When the proposal covers several properties, use the portfolio totals the proposal states. Never add up figures yourself.
+- For every number you return, add an evidence entry that copies, character for character, the short piece of the proposal that states it (for example "2026 Tax Savings (37%) $567,528"). The app checks each quote against the proposal and drops any number it cannot find there, so a number you cannot quote must be null.
+- A column labelled "increased" counts as the extra deduction only if it is smaller than the provider's total year-1 depreciation; if the two are equal, leave increasedDeduction null and set taxBenefitOn from what the benefit is figured on.`;
 
 function describeFormValues(v: QuoteValues, comments: string | null) {
   const lines = QUOTE_FIELDS.map(f => `${f.label}: ${v[f.key] == null ? "(blank)" : formatValue(v[f.key], f.kind === "study" || f.kind === "benefitOn" ? "text" : f.kind)}`);
@@ -113,6 +121,18 @@ export function mergeQuote(form: QuoteValues, ai: StandardQuote) {
   return { merged, filled, mismatches };
 }
 
+/** The proposal's text, page by page, or null if it can't be read (a scanned image, say). */
+export async function proposalText(pdf: Buffer | Uint8Array): Promise<string | null> {
+  try {
+    const { extractText, getDocumentProxy } = await import("unpdf");
+    const doc = await getDocumentProxy(new Uint8Array(pdf));
+    const { text } = await extractText(doc, { mergePages: true });
+    return String(text).trim() || null;
+  } catch {
+    return null;
+  }
+}
+
 /** Runs AI standardization for one stored supplier quote. Never throws. */
 export async function standardizeQuote(quoteId: string) {
   const sql = db();
@@ -130,15 +150,19 @@ export async function standardizeQuote(quoteId: string) {
   const form = rowToValues(q);
   for (const k of q.ai_filled_fields as QuoteKey[]) form[k] = null;
   try {
-    const ai = await extractStandardQuote({ facts: supplierFacts(d), form, comments: q.comments, pdf: q.proposal_pdf ?? null });
+    const read = await extractStandardQuote({ facts: supplierFacts(d), form, comments: q.comments, pdf: q.proposal_pdf ?? null });
+    // Keep only numbers the proposal itself states; the rest show as "Not stated".
+    const text = q.proposal_pdf ? await proposalText(q.proposal_pdf) : null;
+    const { kept, rejected } = verifyEvidence(read as QuoteValues, read.evidence as Evidence[], text);
+    const ai = { ...read, ...kept } as StandardQuote;
     const { merged, filled, mismatches } = mergeQuote(form, ai);
     const cols: Record<string, unknown> = {};
     for (const f of QUOTE_FIELDS) cols[f.column] = merged[f.key] ?? null;
     await sql`update supplier_quotes set ${sql(cols as any)}, ai_extracted = ${sql.json(ai as any)}, ai_filled_fields = ${filled},
-              ai_mismatches = ${sql.json(mismatches as any)}, ai_notes = ${sql.json({ inclusions: ai.inclusions, exclusions: ai.exclusions, caveats: ai.caveats })},
+              ai_mismatches = ${sql.json(mismatches as any)}, ai_notes = ${sql.json({ inclusions: ai.inclusions, exclusions: ai.exclusions, caveats: ai.caveats, rejected } as any)},
               ai_status = 'done', ai_error = null where id = ${quoteId}`;
-    await logEvent(q.deal_id, "ai_standardized", { supplier: q.company_name, filled: filled.length, mismatches: mismatches.length });
-    return { status: "done" as const, filled, mismatches };
+    await logEvent(q.deal_id, "ai_standardized", { supplier: q.company_name, filled: filled.length, mismatches: mismatches.length, rejected: rejected.length });
+    return { status: "done" as const, filled, mismatches, rejected };
   } catch (e) {
     const msg = (e as Error).message.slice(0, 500);
     await sql`update supplier_quotes set ai_status = 'failed', ai_error = ${msg} where id = ${quoteId}`;
@@ -178,18 +202,26 @@ ${JSON.stringify(table, null, 1)}`,
   return text;
 }
 
-/** Plain summary from the numbers, used when AI is not configured or fails. */
-export function fallbackSummary(propertyType: string, cols: ComparisonColumn[]) {
+/**
+ * Plain summary from the numbers, used when AI is not configured, fails, or
+ * mentions a number that isn't in the table. It only states rankings the
+ * table itself shows in green, and only compares benefits that are comparable.
+ */
+export function fallbackSummary(propertyType: string, cols: ComparisonColumn[], best: Record<string, number> = {}) {
   if (!cols.length) return "";
   const pick = (k: string) => cols.filter(c => Number((c.values as any)[k]) > 0);
   const fees = pick("fee").map(c => Number(c.values.fee));
-  const sav = pick("firstYearTaxSavings").map(c => Number(c.values.firstYearTaxSavings));
   const parts = [`We received ${cols.length} quote${cols.length > 1 ? "s" : ""} for your ${propertyType.toLowerCase()} property.`];
-  if (fees.length) parts.push(`Fees range from ${formatValue(Math.min(...fees), "money")} to ${formatValue(Math.max(...fees), "money")}.`);
-  if (sav.length) parts.push(`Estimated first-year tax savings range from ${formatValue(Math.min(...sav), "money")} to ${formatValue(Math.max(...sav), "money")}.`);
-  const best = pick("savingsPerDollar").sort((a, b) => Number(b.values.savingsPerDollar) - Number(a.values.savingsPerDollar))[0];
-  if (best && cols.length > 1) parts.push(`${best.name} offers the most estimated savings per dollar of fee.`);
-  const fast = pick("turnaroundDays").sort((a, b) => Number(a.values.turnaroundDays) - Number(b.values.turnaroundDays))[0];
-  if (fast && cols.length > 1) parts.push(`${fast.name} is fastest at ${fast.values.turnaroundDays} days.`);
+  if (fees.length > 1) parts.push(`Fees range from ${formatValue(Math.min(...fees), "money")} to ${formatValue(Math.max(...fees), "money")}.`);
+  else if (fees.length) parts.push(`The fee is ${formatValue(fees[0], "money")}.`);
+  const comparable = cols.filter(c => Number(c.values.firstYearTaxSavings) > 0 && !benefitNotComparable(c.values));
+  for (const c of comparable) parts.push(`${c.name} estimates a first-year tax benefit of ${cellText(c.values as any, { key: "firstYearTaxSavings", kind: "money" })} on the extra deduction from the study.`);
+  const other = cols.filter(c => Number(c.values.firstYearTaxSavings) > 0 && benefitNotComparable(c.values));
+  if (other.length) parts.push(`${other.map(c => c.name).join(" and ")} ${other.length > 1 ? "give benefits" : "gives a benefit"} that cannot be compared with the others (see the table).`);
+  const winner = (k: string) => cols.find(c => best[k] !== undefined && Number((c.values as any)[k]) === best[k]);
+  const perDollar = winner("savingsPerDollar");
+  if (perDollar) parts.push(`${perDollar.name} has the highest tax benefit per $1 of fee.`);
+  const fast = winner("turnaroundDays");
+  if (fast) parts.push(`${fast.name} is the fastest, at ${cellText(fast.values as any, { key: "turnaroundDays", kind: "days" })}.`);
   return parts.join(" ");
 }

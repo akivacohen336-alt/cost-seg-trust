@@ -42,6 +42,7 @@ export default async function ComparisonPage({ params }: { params: Promise<{ id:
         reports={reports.map(r => ({ id: r.id, version: r.version, filename: r.filename, created: dateTime(r.created_at), sent: r.sent_at ? `${dateTime(r.sent_at)} to ${r.sent_to}` : null }))}
         defaultMessage={c.client_message ?? defaultClientMessage(d, view.columns.length)}
         clientEmail={d.email}
+        purchasePrice={Number(d.purchase_price)}
       />
     </>
   );

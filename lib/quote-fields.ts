@@ -89,10 +89,26 @@ export function rowToValues(row: Record<string, any>): QuoteValues {
   return out;
 }
 
-/** Tax benefit per $1 of fee, low and high end. Not given when the benefit includes regular depreciation. */
+/**
+ * Why a provider's tax benefit can't be set against the others, or null if it
+ * can: it must be the tax on the extra deduction only, and where the provider
+ * gives the deduction and rate, deduction × rate must equal the benefit.
+ */
+export function benefitNotComparable(v: QuoteValues): string | null {
+  if (v.taxBenefitOn === "total") return "benefit includes regular depreciation";
+  if (v.taxBenefitOn !== "extra") return "not stated what the benefit is figured on";
+  const rate = Number(v.assumedTaxRate) / 100;
+  for (const [inc, ben] of [["increasedDeduction", "firstYearTaxSavings"], ["increasedDeductionHigh", "firstYearTaxSavingsHigh"]] as const) {
+    const d = Number(v[inc]), b = Number(v[ben]);
+    if (d > 0 && b > 0 && rate > 0 && Math.abs(d * rate - b) > Math.max(2, b * 0.01)) return "benefit does not match deduction × tax rate";
+  }
+  return null;
+}
+
+/** Tax benefit per $1 of fee, low and high end. Only for benefits that compare like with like. */
 export const savingsPerDollar = (v: QuoteValues) => {
   const fee = Number(v.fee), sav = Number(v.firstYearTaxSavings);
-  return v.taxBenefitOn !== "total" && fee > 0 && sav > 0 ? sav / fee : null;
+  return !benefitNotComparable(v) && fee > 0 && sav > 0 ? sav / fee : null;
 };
 export const savingsPerDollarHigh = (v: QuoteValues) => {
   const fee = Number(v.fee), high = Number(v.firstYearTaxSavingsHigh);
@@ -121,7 +137,8 @@ export function cellText(values: Record<string, any>, row: { key: string; kind: 
     return values.taxBenefitOn === "total" ? `${range} (${TOTAL_NOTE})` : range;
   }
   if (row.key === "savingsPerDollar") {
-    if (values.taxBenefitOn === "total" && values.firstYearTaxSavings != null) return "Not comparable (benefit includes regular depreciation)";
+    const why = values.firstYearTaxSavings != null ? benefitNotComparable(values) : null;
+    if (why) return `Not comparable (${why})`;
     if (v == null) return "—";
     return values.savingsPerDollarHigh > v ? `${formatValue(v, "ratio")} – ${formatValue(values.savingsPerDollarHigh, "ratio")}` : formatValue(v, "ratio");
   }

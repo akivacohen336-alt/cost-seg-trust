@@ -3,6 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { approveAndSendAction, buildComparisonAction, generatePdfAction, saveComparisonAction, unlockAction } from "@/app/admin/deal-actions";
+import { consistencyChecks, summaryProblems } from "@/lib/checks";
 import { bestValues, cellText, deriveValues, formatValue, STUDY_TYPES, withRatios } from "@/lib/quote-fields";
 
 type Quote = { inviteId: string; supplier: string; values: Record<string, any>; aiFilled: string[]; mismatches: any[]; notes: any };
@@ -12,7 +13,7 @@ type Edits = { summary: string; anonymize: boolean; hiddenRows: string[]; hidden
 export default function ComparisonEditor(p: {
   dealId: string; status: string; summarySource: string; initial: Edits; quotes: Quote[]; rows: Row[];
   fields: { key: string; kind: string }[]; reports: { id: string; version: number; filename: string; created: string; sent: string | null }[];
-  defaultMessage: string; clientEmail: string;
+  defaultMessage: string; clientEmail: string; purchasePrice: number;
 }) {
   const router = useRouter();
   const [e, setE] = useState<Edits>(p.initial);
@@ -38,6 +39,14 @@ export default function ComparisonEditor(p: {
   }), [p.quotes, e]);
   const rows = p.rows.filter(r => !e.hiddenRows.includes(r.key));
   const best = bestValues(columns, rows);
+  // Things to look at before approving, refreshed as you edit.
+  const checks = [
+    ...consistencyChecks(columns),
+    ...columns.flatMap(c => (c.notes?.rejected ?? [])
+      .filter((r: any) => !(e.overrides[c.inviteId] && r.field in e.overrides[c.inviteId]))
+      .map((r: any) => ({ provider: c.name, message: `The AI read ${p.rows.find(x => x.key === r.field)?.label ?? r.field} as ${r.value}, but left it out because ${r.reason}. Type it in if the proposal does state it.` }))),
+  ];
+  const summaryBad = summaryProblems(e.summary, columns, [p.purchasePrice]);
 
   function setCell(inviteId: string, key: string, raw: string) {
     const kind = kindOf(key);
@@ -76,6 +85,15 @@ export default function ComparisonEditor(p: {
           </span>
         </div>
         {!locked ? <p className="small muted" style={{ margin: 0 }}>Click any value to correct it. Green marks the best value in a row. Values the AI read from a proposal PDF are marked “AI”, and values we worked out from the provider's other numbers are marked “calculated”.</p> : null}
+        {checks.length || summaryBad.length ? (
+          <div className="notice" style={{ background: "var(--warn)", color: "var(--warn-ink)" }} role="alert">
+            <b>Check before approving</b>
+            <ul style={{ margin: "6px 0 0", paddingLeft: 18 }}>
+              {summaryBad.length ? <li>Summary: {summaryBad.join(", ")} {summaryBad.length > 1 ? "are" : "is"} not in the table. Keep {summaryBad.length > 1 ? "them" : "it"} only if a proposal states {summaryBad.length > 1 ? "them" : "it"}.</li> : null}
+              {checks.map((c, i) => <li key={i}>{c.provider}: {c.message}</li>)}
+            </ul>
+          </div>
+        ) : !locked ? <p className="notice ok" style={{ margin: 0 }}>Checks passed: each provider's figures add up, and every number in the summary is in the table.</p> : null}
         <div className="tablewrap">
           <table>
             <thead><tr><th></th>{columns.map(c => <th key={c.inviteId} style={{ textTransform: "none", letterSpacing: 0, fontSize: ".86rem", color: "var(--heading)" }}>{c.name}</th>)}</tr></thead>

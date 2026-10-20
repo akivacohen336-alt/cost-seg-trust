@@ -1,4 +1,5 @@
 // Phase 7: the one-page comparison, its approval, the branded PDF and sending it.
+import { consistencyChecks, summaryProblems, type CheckWarning } from "./checks";
 import { config } from "./config";
 import { db, logEvent } from "./db";
 import { fallbackSummary, writeComparisonSummary, type ComparisonColumn } from "./ai";
@@ -14,6 +15,8 @@ export type ComparisonView = {
   columns: (ComparisonColumn & { inviteId: string; aiFilled: string[]; calculated: QuoteKey[] })[];
   rows: ComparisonRow[];
   best: Record<string, number>;
+  /** Things to look at before approving: figures that don't add up, and AI-read numbers dropped because the proposal doesn't state them. */
+  checks: CheckWarning[];
 };
 
 export async function loadComparison(dealId: string): Promise<ComparisonView | null> {
@@ -43,7 +46,12 @@ export async function loadComparison(dealId: string): Promise<ComparisonView | n
   });
   const rowsShown = COMPARISON_ROWS.filter(r => !(comparison.hidden_rows ?? []).includes(r.key));
   const best = bestValues(columns, rowsShown);
-  return { comparison, deal, quotes, columns, rows: rowsShown, best };
+  const checks = consistencyChecks(columns);
+  for (const q of visible) for (const r of q.notes.rejected ?? []) {
+    const label = QUOTE_FIELDS.find(f => f.key === r.field)?.label ?? r.field;
+    checks.push({ provider: columns.find(c => c.inviteId === q.inviteId)!.name, message: `The AI read ${label} as ${r.value}, but it was left out because ${r.reason}. Type it in if the proposal does state it.` });
+  }
+  return { comparison, deal, quotes, columns, rows: rowsShown, best, checks };
 }
 
 /** Creates the comparison (or refreshes its summary) from the submitted quotes. */
@@ -58,9 +66,12 @@ export async function buildComparison(dealId: string) {
   try {
     if (!config.anthropic.apiKey) throw new Error("AI not configured");
     summary = await writeComparisonSummary(view.deal, view.columns);
+    // An AI summary may only use numbers that are in the table.
+    const bad = summaryProblems(summary, view.columns, [Number(view.deal.purchase_price)]);
+    if (bad.length) throw new Error(`AI summary used numbers not in the table: ${bad.join(", ")}`);
     source = "ai";
   } catch (e) {
-    summary = fallbackSummary(view.deal.property_type, view.columns);
+    summary = fallbackSummary(view.deal.property_type, view.columns, view.best);
     source = `standard (${(e as Error).message.slice(0, 120)})`;
   }
   await sql`update comparisons set summary = ${summary}, summary_source = ${source} where deal_id = ${dealId}`;
