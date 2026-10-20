@@ -57,6 +57,10 @@ export const MIGRATIONS: { name: string; sql: string }[] = [
     "sql": "-- Delivery is often quoted as a range (\"4 to 6 weeks\"), and a provider may say\n-- why a look-back / Form 3115 is not needed rather than just yes or no.\nalter table supplier_quotes add column if not exists turnaround_days_high integer;\nalter table supplier_quotes add column if not exists lookback_note text;\n"
   },
   {
+    "name": "015_admin_users.sql",
+    "sql": "-- Extra dashboard logins (for example the CEO). The owner still signs in with\n-- ADMIN_EMAIL / ADMIN_PASSWORD_HASH; everyone here chooses their own password\n-- from an emailed link. Only a hash of each link's secret is stored.\ncreate table if not exists admin_users (\n  id                uuid primary key default gen_random_uuid(),\n  email             text not null unique,\n  name              text,\n  password_hash     text,\n  invite_token_hash text unique,\n  invite_expires_at timestamptz,\n  invited_by        text,\n  active            boolean not null default true,\n  created_at        timestamptz not null default now(),\n  password_set_at   timestamptz,\n  last_login_at     timestamptz\n);\nalter table admin_users enable row level security;\n"
+  },
+  {
     "name": "seed_test_suppliers.sql",
     "sql": "-- Test suppliers for safe end-to-end testing. Their emails use \"+\" addressing,\n-- so anything \"sent to a supplier\" lands in the owner's own Gmail inbox.\n-- Real suppliers are added later from the admin Suppliers page.\ninsert into suppliers (company_name, contact_name, email, description, is_test) values\n  ('Test Supplier A', 'Test Contact A', 'akivacohen336+supplier-a@gmail.com', 'Test only: full engineering studies', true),\n  ('Test Supplier B', 'Test Contact B', 'akivacohen336+supplier-b@gmail.com', 'Test only: desktop studies', true),\n  ('Test Supplier C', 'Test Contact C', 'akivacohen336+supplier-c@gmail.com', 'Test only: residential and STR', true)\non conflict (email) do nothing;\n"
   }
