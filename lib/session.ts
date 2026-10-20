@@ -1,4 +1,5 @@
-// Signed session cookie for the single admin. Edge-safe (used by middleware).
+// Signed session cookie for a dashboard login. Edge-safe (used by middleware),
+// so it only proves who signed in; lib/admin-auth.ts checks they still may.
 import { SignJWT, jwtVerify } from "jose";
 
 export const SESSION_COOKIE = "cst_admin";
@@ -22,8 +23,7 @@ export async function verifySessionToken(token: string | undefined) {
   if (!token) return null;
   try {
     const { payload } = await jwtVerify(token, key());
-    const admin = (process.env.ADMIN_EMAIL ?? "akivacohen336@gmail.com").toLowerCase();
-    return String(payload.email).toLowerCase() === admin ? { email: admin } : null;
+    return typeof payload.email === "string" && payload.email ? { email: payload.email.toLowerCase() } : null;
   } catch {
     return null;
   }
