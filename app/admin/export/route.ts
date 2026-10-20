@@ -1,11 +1,13 @@
+import { requireAdmin } from "@/lib/admin-auth";
 import { db } from "@/lib/db";
 import { PROPERTY_TYPES, isStageKey, stageLabel } from "@/lib/stages";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// Protected by middleware (all /admin routes require the admin session).
+// Middleware checks the cookie; requireAdmin also turns away removed logins.
 export async function GET(req: Request) {
+  await requireAdmin();
   const sp = new URL(req.url).searchParams;
   const stage = sp.get("stage") && isStageKey(sp.get("stage")!) ? sp.get("stage") : null;
   const type = sp.get("type") && (PROPERTY_TYPES as readonly string[]).includes(sp.get("type")!) ? sp.get("type") : null;

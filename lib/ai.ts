@@ -3,9 +3,10 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import { z } from "zod";
+import { verifyEvidence, type Evidence } from "./checks";
 import { config } from "./config";
 import { db, logEvent } from "./db";
-import { COMPARISON_ROWS, QUOTE_FIELDS, STUDY_TYPES, formatValue, rowToValues, type QuoteKey, type QuoteValues } from "./quote-fields";
+import { QUOTE_FIELDS, STUDY_TYPES, formatValue, rowToValues, type QuoteKey, type QuoteValues } from "./quote-fields";
 
 let client: Anthropic | null = null;
 function anthropic() {
@@ -18,19 +19,36 @@ const num = z.number().nullable();
 export const StandardQuoteSchema = z.object({
   fee: num.describe("Total study fee in US dollars"),
   studyType: z.enum(STUDY_TYPES).nullable(),
-  siteVisit: z.boolean().nullable().describe("True if an on-site inspection is included"),
-  turnaroundDays: num.describe("Delivery time in calendar days (convert weeks to days)"),
-  reclassifiedPct: num.describe("Percent of depreciable basis reclassified to 5/7/15-year property, 0-100"),
-  firstYearDeduction: num.describe("Estimated first-year depreciation deduction in US dollars"),
-  firstYearTaxSavings: num.describe("Estimated first-year tax savings in US dollars"),
+  siteVisit: z.boolean().nullable().describe("True if an in-person, on-site inspection is included; false if virtual or none"),
+  turnaroundDays: num.describe("Delivery time in calendar days (convert weeks to days); the shortest if a range is given"),
+  turnaroundDaysHigh: num.describe("Longest delivery time in calendar days, only if the provider gives a range"),
+  reclassifiedPct: num.describe("Percent of depreciable basis reclassified to 5/7/15-year property, 0-100; the conservative figure if a range is given"),
+  reclassifiedPctHigh: num.describe("High end of the percent reclassified, only if the provider gives a range"),
+  depreciableBasis: num.describe("Depreciable basis (building cost, excluding land) the estimate is based on, in US dollars"),
+  regularDepreciation: num.describe("First-year depreciation WITHOUT a study (straight-line only), in US dollars"),
+  firstYearDeduction: num.describe("Total first-year depreciation WITH the study (accelerated method, bonus included), in US dollars; the conservative figure if a range is given"),
+  firstYearDeductionHigh: num.describe("High end of first-year depreciation with the study, only if the provider gives a range"),
+  increasedDeduction: num.describe("Extra first-year deduction from the study: with-study depreciation minus straight-line depreciation, in US dollars. Null if the provider's 'increased' figure simply equals its total first-year depreciation. The conservative figure if a range is given"),
+  increasedDeductionHigh: num.describe("High end of the extra first-year deduction, only if the provider gives a range"),
+  acceleratedAmount: num.describe("Total dollars of basis reclassified to 5, 7 and 15-year property"),
+  firstYearTaxSavings: num.describe("Estimated first-year tax savings in US dollars; the conservative figure if a range is given"),
+  firstYearTaxSavingsHigh: num.describe("High end of the first-year tax savings, only if the provider gives a range"),
+  taxBenefitOn: z.enum(["extra", "total"]).nullable().describe("'extra' if the tax savings are figured on the extra deduction from the study (with-study depreciation minus straight-line); 'total' if figured on all first-year depreciation, regular portion included; null if unclear"),
   assumedTaxRate: num.describe("Tax rate the supplier assumed, as a percent 0-100"),
+  scopeOfWork: z.string().nullable().describe("What the study includes, in under 25 words: method (engineering-based, purchase price allocation, desktop), inspection, report, CPA review, delivery time"),
   auditSupport: z.string().nullable().describe("Audit support terms in under 10 words"),
   includesLookback: z.boolean().nullable().describe("True if a look-back study / Form 3115 support is included"),
+  lookbackNote: z.string().nullable().describe("Only if the provider says why Form 3115 / look-back is or isn't needed, in under 10 words, e.g. 'Not needed (placed in service in 2026)'"),
   paymentTerms: z.string().nullable().describe("Payment terms in under 10 words"),
   validDays: num.describe("How many days the quote stays valid"),
   inclusions: z.array(z.string()).describe("Notable inclusions, each under 12 words"),
   exclusions: z.array(z.string()).describe("Notable exclusions or extra charges, each under 12 words"),
   caveats: z.array(z.string()).describe("Assumptions or caveats that affect the estimates, each under 15 words"),
+  evidence: z.array(z.object({
+    field: z.string().describe("The field name, e.g. firstYearTaxSavings"),
+    quote: z.string().describe("Text copied character for character from the proposal that states this number, one line or less"),
+    page: z.number().nullable(),
+  })).describe("One entry for every number you return, quoting the proposal where it is stated"),
 });
 export type StandardQuote = z.infer<typeof StandardQuoteSchema>;
 
@@ -42,10 +60,14 @@ Rules:
 - Use only what the supplier stated in the form or the proposal. If a value is not stated, return null. Never estimate or calculate a value the supplier did not give, except converting units (weeks to days, a decimal rate to a percent).
 - Where the form and the PDF disagree, report what the PDF says; the app compares the two and flags differences for review.
 - Money is a plain number of US dollars (no symbols). Percentages are 0-100.
-- Keep the short text fields brief and neutral.`;
+- Keep the short text fields brief and neutral.
+- When the provider gives a range (conservative and high end), put the conservative figures in the main fields and the high-end figures in the matching ...High fields.
+- When the proposal covers several properties, use the portfolio totals the proposal states. Never add up figures yourself.
+- For every number you return, add an evidence entry that copies, character for character, the short piece of the proposal that states it (for example "2026 Tax Savings (37%) $567,528"). The app checks each quote against the proposal and drops any number it cannot find there, so a number you cannot quote must be null.
+- A column labelled "increased" counts as the extra deduction only if it is smaller than the provider's total year-1 depreciation; if the two are equal, leave increasedDeduction null and set taxBenefitOn from what the benefit is figured on.`;
 
 function describeFormValues(v: QuoteValues, comments: string | null) {
-  const lines = QUOTE_FIELDS.map(f => `${f.label}: ${v[f.key] == null ? "(blank)" : formatValue(v[f.key], f.kind === "study" ? "text" : f.kind)}`);
+  const lines = QUOTE_FIELDS.map(f => `${f.label}: ${v[f.key] == null ? "(blank)" : formatValue(v[f.key], f.kind === "study" || f.kind === "benefitOn" ? "text" : f.kind)}`);
   if (comments) lines.push(`Comments: ${comments}`);
   return lines.join("\n");
 }
@@ -75,7 +97,8 @@ export async function extractStandardQuote(input: {
   return res.parsed_output;
 }
 
-const NUMERIC: QuoteKey[] = ["fee", "turnaroundDays", "reclassifiedPct", "firstYearDeduction", "firstYearTaxSavings", "assumedTaxRate", "validDays"];
+const NUMERIC: QuoteKey[] = ["fee", "turnaroundDays", "turnaroundDaysHigh", "depreciableBasis", "regularDepreciation", "reclassifiedPct", "reclassifiedPctHigh", "firstYearDeduction", "firstYearDeductionHigh",
+  "increasedDeduction", "increasedDeductionHigh", "acceleratedAmount", "firstYearTaxSavings", "firstYearTaxSavingsHigh", "assumedTaxRate", "validDays"];
 
 /**
  * Combines what the supplier typed with what the AI read. The supplier's own
@@ -98,6 +121,18 @@ export function mergeQuote(form: QuoteValues, ai: StandardQuote) {
   return { merged, filled, mismatches };
 }
 
+/** The proposal's text, page by page, or null if it can't be read (a scanned image, say). */
+export async function proposalText(pdf: Buffer | Uint8Array): Promise<string | null> {
+  try {
+    const { extractText, getDocumentProxy } = await import("unpdf");
+    const doc = await getDocumentProxy(new Uint8Array(pdf));
+    const { text } = await extractText(doc, { mergePages: true });
+    return String(text).trim() || null;
+  } catch {
+    return null;
+  }
+}
+
 /** Runs AI standardization for one stored supplier quote. Never throws. */
 export async function standardizeQuote(quoteId: string) {
   const sql = db();
@@ -115,15 +150,19 @@ export async function standardizeQuote(quoteId: string) {
   const form = rowToValues(q);
   for (const k of q.ai_filled_fields as QuoteKey[]) form[k] = null;
   try {
-    const ai = await extractStandardQuote({ facts: supplierFacts(d), form, comments: q.comments, pdf: q.proposal_pdf ?? null });
+    const read = await extractStandardQuote({ facts: supplierFacts(d), form, comments: q.comments, pdf: q.proposal_pdf ?? null });
+    // Keep only numbers the proposal itself states; the rest show as "Not stated".
+    const text = q.proposal_pdf ? await proposalText(q.proposal_pdf) : null;
+    const { kept, rejected } = verifyEvidence(read as QuoteValues, read.evidence as Evidence[], text);
+    const ai = { ...read, ...kept } as StandardQuote;
     const { merged, filled, mismatches } = mergeQuote(form, ai);
     const cols: Record<string, unknown> = {};
     for (const f of QUOTE_FIELDS) cols[f.column] = merged[f.key] ?? null;
     await sql`update supplier_quotes set ${sql(cols as any)}, ai_extracted = ${sql.json(ai as any)}, ai_filled_fields = ${filled},
-              ai_mismatches = ${sql.json(mismatches as any)}, ai_notes = ${sql.json({ inclusions: ai.inclusions, exclusions: ai.exclusions, caveats: ai.caveats })},
+              ai_mismatches = ${sql.json(mismatches as any)}, ai_notes = ${sql.json({ inclusions: ai.inclusions, exclusions: ai.exclusions, caveats: ai.caveats, rejected } as any)},
               ai_status = 'done', ai_error = null where id = ${quoteId}`;
-    await logEvent(q.deal_id, "ai_standardized", { supplier: q.company_name, filled: filled.length, mismatches: mismatches.length });
-    return { status: "done" as const, filled, mismatches };
+    await logEvent(q.deal_id, "ai_standardized", { supplier: q.company_name, filled: filled.length, mismatches: mismatches.length, rejected: rejected.length });
+    return { status: "done" as const, filled, mismatches, rejected };
   } catch (e) {
     const msg = (e as Error).message.slice(0, 500);
     await sql`update supplier_quotes set ai_status = 'failed', ai_error = ${msg} where id = ${quoteId}`;
@@ -132,49 +171,6 @@ export async function standardizeQuote(quoteId: string) {
   }
 }
 
-// ---------- Comparison summary ----------
+// ---------- Comparison ----------
 
-export type ComparisonColumn = { name: string; values: QuoteValues & { savingsPerDollar?: number | null } };
-
-export async function writeComparisonSummary(deal: { property_type: string; purchase_price: unknown; placed_in_service: unknown }, cols: ComparisonColumn[]) {
-  const table = cols.map(c => ({
-    provider: c.name,
-    ...Object.fromEntries(COMPARISON_ROWS.map(r => [r.label, formatValue((c.values as any)[r.key], r.kind)])),
-  }));
-  const res = await anthropic().beta.messages.create({
-    model: config.anthropic.model,
-    max_tokens: 4000,
-    system: "You write short, plain-English summaries for Cost Seg Trust's one-page cost segregation quote comparisons. The reader is a real estate investor, and often their CPA. Be factual and neutral. You are not giving tax advice.",
-    messages: [{
-      role: "user",
-      content: `Property: ${deal.property_type}, purchase price ${deal.purchase_price == null ? "not given" : "$" + Math.round(Number(deal.purchase_price)).toLocaleString("en-US")}.
-
-Write a 3 to 4 sentence summary of these quotes: the fee range, the range of estimated first-year tax savings, which provider offers the most estimated savings per dollar of fee, which is fastest, and any difference that matters (for example a desktop study versus a full engineering study with a site visit, or weaker audit support). Use only the figures below, and never invent a number. Plain sentences only, no headings or bullet points.
-
-${JSON.stringify(table, null, 1)}`,
-    }],
-    output_config: { effort: "low" },
-    betas: ["server-side-fallback-2026-07-01"],
-    fallbacks: "default",
-  });
-  if (res.stop_reason === "refusal") throw new Error("The AI declined to write the summary");
-  const text = res.content.filter(b => b.type === "text").map(b => (b as Anthropic.Beta.BetaTextBlock).text).join("").trim();
-  if (!text) throw new Error("The AI returned an empty summary");
-  return text;
-}
-
-/** Plain summary from the numbers, used when AI is not configured or fails. */
-export function fallbackSummary(propertyType: string, cols: ComparisonColumn[]) {
-  if (!cols.length) return "";
-  const pick = (k: string) => cols.filter(c => Number((c.values as any)[k]) > 0);
-  const fees = pick("fee").map(c => Number(c.values.fee));
-  const sav = pick("firstYearTaxSavings").map(c => Number(c.values.firstYearTaxSavings));
-  const parts = [`We received ${cols.length} quote${cols.length > 1 ? "s" : ""} for your ${propertyType.toLowerCase()} property.`];
-  if (fees.length) parts.push(`Fees range from ${formatValue(Math.min(...fees), "money")} to ${formatValue(Math.max(...fees), "money")}.`);
-  if (sav.length) parts.push(`Estimated first-year tax savings range from ${formatValue(Math.min(...sav), "money")} to ${formatValue(Math.max(...sav), "money")}.`);
-  const best = pick("savingsPerDollar").sort((a, b) => Number(b.values.savingsPerDollar) - Number(a.values.savingsPerDollar))[0];
-  if (best && cols.length > 1) parts.push(`${best.name} offers the most estimated savings per dollar of fee.`);
-  const fast = pick("turnaroundDays").sort((a, b) => Number(a.values.turnaroundDays) - Number(b.values.turnaroundDays))[0];
-  if (fast && cols.length > 1) parts.push(`${fast.name} is fastest at ${fast.values.turnaroundDays} days.`);
-  return parts.join(" ");
-}
+export type ComparisonColumn = { name: string; values: QuoteValues & { savingsPerDollar?: number | null; savingsPerDollarHigh?: number | null } };

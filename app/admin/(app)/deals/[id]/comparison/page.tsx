@@ -34,11 +34,10 @@ export default async function ComparisonPage({ params }: { params: Promise<{ id:
       <ComparisonEditor
         dealId={id}
         status={c.status}
-        summarySource={c.summary_source ?? ""}
         initial={{ summary: c.summary ?? "", anonymize: !!c.anonymize, hiddenRows: c.hidden_rows ?? [], hiddenInvites: c.hidden_invites ?? [], overrides: c.overrides ?? {} }}
         quotes={view.quotes.map(q => ({ inviteId: q.inviteId, supplier: q.supplier, values: q.values, aiFilled: q.aiFilled, mismatches: q.mismatches, notes: q.notes }))}
         rows={COMPARISON_ROWS}
-        fields={QUOTE_FIELDS.map(f => ({ key: f.key, kind: f.kind }))}
+        fields={QUOTE_FIELDS.map(f => ({ key: f.key, kind: f.kind, label: f.label }))}
         reports={reports.map(r => ({ id: r.id, version: r.version, filename: r.filename, created: dateTime(r.created_at), sent: r.sent_at ? `${dateTime(r.sent_at)} to ${r.sent_to}` : null }))}
         defaultMessage={c.client_message ?? defaultClientMessage(d, view.columns.length)}
         clientEmail={d.email}

@@ -74,7 +74,7 @@ describe("referral link", () => {
     await addPartner({ name: "Jane Smith" });
     const res = await refRoute.GET(new Request("https://costsegtrust.test/r/Jane-Smith"), { params: Promise.resolve({ code: "Jane-Smith" }) });
     expect(res.status).toBe(307);
-    expect(res.headers.get("location")).toBe("https://costsegtrust.test/quote?ref=jane-smith");
+    expect(res.headers.get("location")).toBe("https://costsegtrust.test/start?ref=jane-smith");
     expect(res.headers.get("set-cookie")).toMatch(/cst_ref=jane-smith;.*Max-Age=31536000/i);
   });
   it("sends unknown or inactive codes to the plain form without a cookie", async () => {
@@ -82,7 +82,7 @@ describe("referral link", () => {
     await actions.togglePartner(form({ id: p.id }));
     for (const code of ["jane-smith", "nobody"]) {
       const res = await refRoute.GET(new Request(`https://costsegtrust.test/r/${code}`), { params: Promise.resolve({ code }) });
-      expect(res.headers.get("location")).toBe("https://costsegtrust.test/quote");
+      expect(res.headers.get("location")).toBe("https://costsegtrust.test/start");
       expect(res.headers.get("set-cookie")).toBeNull();
     }
   });

@@ -33,7 +33,7 @@ export const quoteRequestSchema = z.object({
   utmSource: optionalText(100),
   utmMedium: optionalText(100),
   utmCampaign: optionalText(100),
-  // Referral partner code from a partner link (/r/CODE or /quote?ref=CODE).
+  // Referral partner code from a partner link (/r/CODE or /start?ref=CODE).
   ref: optionalText(60),
   // Honeypot: real people never see or fill this field.
   website: z.string().max(0).optional().or(z.literal("")),

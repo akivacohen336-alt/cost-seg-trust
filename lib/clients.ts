@@ -10,6 +10,8 @@ export const FILE_TYPES: Record<string, { label: string; inline: boolean }> = {
   "image/png": { label: "Image", inline: true },
   "image/jpeg": { label: "Image", inline: true },
   "image/webp": { label: "Image", inline: true },
+  // iPhone photos; most browsers can't show them, so they download.
+  "image/heic": { label: "Image", inline: false },
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document": { label: "Word", inline: false },
   "application/msword": { label: "Word", inline: false },
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": { label: "Excel", inline: false },
@@ -19,7 +21,7 @@ export const FILE_TYPES: Record<string, { label: string; inline: boolean }> = {
 };
 
 const EXT_TYPES: Record<string, string> = {
-  pdf: "application/pdf", png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", webp: "image/webp",
+  pdf: "application/pdf", png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", webp: "image/webp", heic: "image/heic", heif: "image/heic",
   docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", doc: "application/msword",
   xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", xls: "application/vnd.ms-excel",
   csv: "text/csv", txt: "text/plain",

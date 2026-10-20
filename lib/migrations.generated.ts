@@ -37,6 +37,30 @@ export const MIGRATIONS: { name: string; sql: string }[] = [
     "sql": "-- Leads from the main website (costsegtrust.com, built in Lovable) may not\n-- include every property fact. A deal can be saved without the purchase\n-- price or in-service date; Akiva fills them in before sending to suppliers.\nalter table deals alter column purchase_price drop not null;\nalter table deals alter column placed_in_service drop not null;\n"
   },
   {
+    "name": "010_site_assets.sql",
+    "sql": "-- Photos and logo for the public website, copied from the Lovable site.\n-- Kept in the database (like client files) and served from /img/<name>.\ncreate table if not exists site_assets (\n  name         text primary key,\n  content_type text not null,\n  data         bytea not null,\n  updated_at   timestamptz not null default now()\n);\nalter table site_assets enable row level security;\n"
+  },
+  {
+    "name": "011_quote_benefit_fields.sql",
+    "sql": "-- The one-pager items the CEO asked for (Oct 19): regular vs accelerated\n-- first-year depreciation, the total moved to short lives, the basis the\n-- provider used, and the scope of work.\nalter table supplier_quotes add column if not exists regular_first_year_depreciation numeric(14,2);\nalter table supplier_quotes add column if not exists increased_deduction numeric(14,2);\nalter table supplier_quotes add column if not exists accelerated_amount numeric(14,2);\nalter table supplier_quotes add column if not exists depreciable_basis numeric(14,2);\nalter table supplier_quotes add column if not exists scope_of_work text;\n"
+  },
+  {
+    "name": "012_tax_benefit_range.sql",
+    "sql": "-- A provider may give a range (conservative to high end), and may figure its\n-- tax benefit on the extra deduction from the study or on all year-1\n-- depreciation. Only the first kind can be compared across providers.\nalter table supplier_quotes add column if not exists est_first_year_tax_savings_high numeric(14,2);\nalter table supplier_quotes add column if not exists tax_benefit_on text check (tax_benefit_on in ('extra','total'));\n"
+  },
+  {
+    "name": "013_range_high_ends.sql",
+    "sql": "-- A provider that gives a conservative-to-high range does so for its\n-- deduction and percent too, not only the tax benefit. Keeping both ends lets\n-- every figure in a range be checked against the same column of its table.\nalter table supplier_quotes add column if not exists est_first_year_deduction_high numeric(14,2);\nalter table supplier_quotes add column if not exists increased_deduction_high numeric(14,2);\nalter table supplier_quotes add column if not exists reclassified_pct_high numeric(5,2);\n"
+  },
+  {
+    "name": "014_turnaround_range_lookback_note.sql",
+    "sql": "-- Delivery is often quoted as a range (\"4 to 6 weeks\"), and a provider may say\n-- why a look-back / Form 3115 is not needed rather than just yes or no.\nalter table supplier_quotes add column if not exists turnaround_days_high integer;\nalter table supplier_quotes add column if not exists lookback_note text;\n"
+  },
+  {
+    "name": "015_admin_users.sql",
+    "sql": "-- Extra dashboard logins (for example the CEO). The owner still signs in with\n-- ADMIN_EMAIL / ADMIN_PASSWORD_HASH; everyone here chooses their own password\n-- from an emailed link. Only a hash of each link's secret is stored.\ncreate table if not exists admin_users (\n  id                uuid primary key default gen_random_uuid(),\n  email             text not null unique,\n  name              text,\n  password_hash     text,\n  invite_token_hash text unique,\n  invite_expires_at timestamptz,\n  invited_by        text,\n  active            boolean not null default true,\n  created_at        timestamptz not null default now(),\n  password_set_at   timestamptz,\n  last_login_at     timestamptz\n);\nalter table admin_users enable row level security;\n"
+  },
+  {
     "name": "seed_test_suppliers.sql",
     "sql": "-- Test suppliers for safe end-to-end testing. Their emails use \"+\" addressing,\n-- so anything \"sent to a supplier\" lands in the owner's own Gmail inbox.\n-- Real suppliers are added later from the admin Suppliers page.\ninsert into suppliers (company_name, contact_name, email, description, is_test) values\n  ('Test Supplier A', 'Test Contact A', 'akivacohen336+supplier-a@gmail.com', 'Test only: full engineering studies', true),\n  ('Test Supplier B', 'Test Contact B', 'akivacohen336+supplier-b@gmail.com', 'Test only: desktop studies', true),\n  ('Test Supplier C', 'Test Contact C', 'akivacohen336+supplier-c@gmail.com', 'Test only: residential and STR', true)\non conflict (email) do nothing;\n"
   }

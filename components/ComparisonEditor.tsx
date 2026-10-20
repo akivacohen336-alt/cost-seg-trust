@@ -2,16 +2,17 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { approveAndSendAction, buildComparisonAction, generatePdfAction, saveComparisonAction, unlockAction } from "@/app/admin/deal-actions";
-import { formatValue, savingsPerDollar, STUDY_TYPES } from "@/lib/quote-fields";
+import { approveAndSendAction, generatePdfAction, saveComparisonAction, unlockAction } from "@/app/admin/deal-actions";
+import { consistencyChecks } from "@/lib/checks";
+import { bestValues, cellText, deriveValues, formatValue, STUDY_TYPES, withRatios } from "@/lib/quote-fields";
 
 type Quote = { inviteId: string; supplier: string; values: Record<string, any>; aiFilled: string[]; mismatches: any[]; notes: any };
 type Row = { key: string; label: string; kind: string; best?: "min" | "max" };
 type Edits = { summary: string; anonymize: boolean; hiddenRows: string[]; hiddenInvites: string[]; overrides: Record<string, Record<string, any>> };
 
 export default function ComparisonEditor(p: {
-  dealId: string; status: string; summarySource: string; initial: Edits; quotes: Quote[]; rows: Row[];
-  fields: { key: string; kind: string }[]; reports: { id: string; version: number; filename: string; created: string; sent: string | null }[];
+  dealId: string; status: string; initial: Edits; quotes: Quote[]; rows: Row[];
+  fields: { key: string; kind: string; label: string }[]; reports: { id: string; version: number; filename: string; created: string; sent: string | null }[];
   defaultMessage: string; clientEmail: string;
 }) {
   const router = useRouter();
@@ -33,16 +34,18 @@ export default function ComparisonEditor(p: {
 
   // What the client will see, live as you edit.
   const columns = useMemo(() => p.quotes.filter(q => !e.hiddenInvites.includes(q.inviteId)).map((q, i) => {
-    const values: Record<string, any> = { ...q.values, ...(e.overrides[q.inviteId] ?? {}) };
-    return { ...q, values: { ...values, savingsPerDollar: savingsPerDollar(values) } as Record<string, any>, name: e.anonymize ? `Provider ${String.fromCharCode(65 + i)}` : q.supplier };
+    const { values, calculated } = deriveValues({ ...q.values, ...(e.overrides[q.inviteId] ?? {}) });
+    return { ...q, calculated: [...calculated, ...(q.notes?.calculated ?? [])] as string[], values: withRatios(values) as Record<string, any>, name: e.anonymize ? `Provider ${String.fromCharCode(65 + i)}` : q.supplier };
   }), [p.quotes, e]);
   const rows = p.rows.filter(r => !e.hiddenRows.includes(r.key));
-  const best: Record<string, number> = {};
-  for (const r of rows) {
-    if (!r.best) continue;
-    const nums = columns.map(c => Number(c.values[r.key])).filter(n => isFinite(n) && n > 0);
-    if (nums.length > 1) best[r.key] = r.best === "min" ? Math.min(...nums) : Math.max(...nums);
-  }
+  const best = bestValues(columns, rows);
+  // Things to look at before approving, refreshed as you edit.
+  const checks = [
+    ...consistencyChecks(columns),
+    ...columns.flatMap(c => (c.notes?.rejected ?? [])
+      .filter((r: any) => !(e.overrides[c.inviteId] && r.field in e.overrides[c.inviteId]))
+      .map((r: any) => ({ provider: c.name, message: `The AI read ${p.fields.find(x => x.key === r.field)?.label ?? r.field} as ${r.value}, but left it out because ${r.reason}. Type it in if the proposal does state it.` }))),
+  ];
 
   function setCell(inviteId: string, key: string, raw: string) {
     const kind = kindOf(key);
@@ -80,7 +83,15 @@ export default function ComparisonEditor(p: {
             {p.status === "sent" ? "Sent to client" : p.status === "awaiting_approval" ? "Awaiting your approval" : "Draft"}
           </span>
         </div>
-        {!locked ? <p className="small muted" style={{ margin: 0 }}>Click any value to correct it. Green marks the best value in a row. Values the AI read from a proposal PDF are marked “AI”.</p> : null}
+        {!locked ? <p className="small muted" style={{ margin: 0 }}>Click any value to correct it. Green marks the best value in a row. Values the AI read from a proposal PDF are marked “AI”, and values we worked out from the provider's other numbers are marked “calculated”.</p> : null}
+        {checks.length ? (
+          <div className="notice" style={{ background: "var(--warn)", color: "var(--warn-ink)" }} role="alert">
+            <b>Check before approving</b>
+            <ul style={{ margin: "6px 0 0", paddingLeft: 18 }}>
+              {checks.map((c, i) => <li key={i}>{c.provider}: {c.message}</li>)}
+            </ul>
+          </div>
+        ) : !locked ? <p className="notice ok" style={{ margin: 0 }}>Checks passed: each provider's figures add up.</p> : null}
         <div className="tablewrap">
           <table>
             <thead><tr><th></th>{columns.map(c => <th key={c.inviteId} style={{ textTransform: "none", letterSpacing: 0, fontSize: ".86rem", color: "var(--heading)" }}>{c.name}</th>)}</tr></thead>
@@ -98,10 +109,10 @@ export default function ComparisonEditor(p: {
                       <td key={c.inviteId} className="num" style={isBest ? { background: "var(--good)", color: "var(--good-ink)", fontWeight: 700 } : undefined}>
                         {isEditing ? cellEditor(c, r) : (
                           <span onClick={() => editable && setEditing(`${c.inviteId}:${r.key}`)} style={editable ? { cursor: "text", borderBottom: "1px dashed var(--line)" } : undefined}>
-                            {formatValue(c.values[r.key], r.kind)}
+                            {cellText(c.values, r)}
                           </span>
                         )}
-                        {overridden ? <span className="small muted"> · edited</span> : c.aiFilled.includes(r.key) ? <span className="small muted"> · AI</span> : null}
+                        {overridden ? <span className="small muted"> · edited</span> : c.calculated.includes(r.key) ? <span className="small muted"> · calculated</span> : c.aiFilled.includes(r.key) ? <span className="small muted"> · AI</span> : null}
                         {mismatch && !overridden ? <div className="small" style={{ color: "var(--warn-ink)", fontWeight: 500 }}>PDF says {formatValue(mismatch.pdf, r.kind)}</div> : null}
                       </td>
                     );
@@ -111,9 +122,6 @@ export default function ComparisonEditor(p: {
             </tbody>
           </table>
         </div>
-        <label className="field">Summary for the client {p.summarySource ? <span className="opt">({p.summarySource.startsWith("ai") ? "written by AI, edit freely" : "standard summary; AI wasn't used"})</span> : null}
-          <textarea value={e.summary} disabled={locked} onChange={ev => update(x => ({ ...x, summary: ev.target.value }))} style={{ minHeight: 110 }} />
-        </label>
         {!locked ? (
           <details>
             <summary className="small" style={{ cursor: "pointer", fontWeight: 600 }}>Show or hide suppliers and rows</summary>
@@ -145,12 +153,6 @@ export default function ComparisonEditor(p: {
         {!locked ? (
           <div className="row">
             <button className="btn" disabled={pending || !dirty} onClick={save}>{dirty ? "Save changes" : "Saved"}</button>
-            <button className="btn" disabled={pending} onClick={() => run(async () => {
-              if (dirty) { const s = await saveComparisonAction(p.dealId, e); if (!s.ok) return s; }
-              const r = await buildComparisonAction(p.dealId);
-              if (r.ok) window.location.reload();
-              return { ...r, message: "Summary rewritten from the latest numbers." };
-            })}>Rewrite summary</button>
             <button className="btn dark" disabled={pending || columns.length === 0} onClick={() => run(async () => {
               if (dirty) { const s = await saveComparisonAction(p.dealId, e); if (!s.ok) return s; }
               return generatePdfAction(p.dealId);

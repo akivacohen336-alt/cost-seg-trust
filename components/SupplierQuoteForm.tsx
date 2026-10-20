@@ -52,14 +52,25 @@ export default function SupplierQuoteForm({ token }: { token: string }) {
         <div className="grid2">
           {num("fee", "Study fee ($)")}
           <label className="field">Study type<select name="studyType" defaultValue=""><option value="">Select</option>{STUDY_TYPES.map(t => <option key={t}>{t}</option>)}</select></label>
-          {yesNo("siteVisit", "Site visit included")}
-          {num("turnaroundDays", "Turnaround (days)")}
-          {num("reclassifiedPct", "% of basis reclassified")}
-          {num("firstYearDeduction", "Est. first-year deduction ($)")}
-          {num("firstYearTaxSavings", "Est. first-year tax savings ($)")}
+          {yesNo("siteVisit", "In-person site visit included")}
+          {num("turnaroundDays", "Turnaround (days)", "shortest, if a range")}
+          {num("turnaroundDaysHigh", "Longest turnaround (days)", "only if you give a range")}
+          {num("depreciableBasis", "Depreciable basis used ($)")}
+          {num("regularDepreciation", "Year-1 depreciation without a study ($)", "straight-line")}
+          {num("firstYearDeduction", "Year-1 depreciation with the study ($)", "accelerated, incl. bonus; conservative, if a range")}
+          {num("firstYearDeductionHigh", "High end of year-1 depreciation with the study ($)", "only if you give a range")}
+          {num("acceleratedAmount", "Total moved to 5, 7 and 15-year ($)")}
+          {num("reclassifiedPct", "% of basis reclassified", "conservative, if a range")}
+          {num("reclassifiedPctHigh", "High end of % reclassified", "only if you give a range")}
+          {num("firstYearTaxSavings", "Est. first-year tax benefit ($)", "conservative, if a range")}
+          {num("firstYearTaxSavingsHigh", "High end of the tax benefit ($)", "only if you give a range")}
+          <label className="field">The tax benefit is figured on<select name="taxBenefitOn" defaultValue=""><option value="">Select</option>
+            <option value="extra">The extra deduction from the study only</option><option value="total">All year-1 depreciation (incl. straight-line)</option></select></label>
           {num("assumedTaxRate", "Assumed tax rate (%)")}
+          <label className="field">Scope of work<input type="text" name="scopeOfWork" placeholder="e.g. Engineering-based study, on-site inspection, report and CPA review" /></label>
           <label className="field">Audit support<input type="text" name="auditSupport" placeholder="e.g. Full audit defense included" /></label>
           {yesNo("includesLookback", "Look-back / Form 3115 included")}
+          <label className="field">Form 3115 note <span className="opt">optional</span><input type="text" name="lookbackNote" placeholder="e.g. Not needed, placed in service this year" /></label>
           <label className="field">Payment terms<input type="text" name="paymentTerms" placeholder="e.g. 50% upfront, 50% on delivery" /></label>
           {num("validDays", "Quote valid for (days)")}
         </div>

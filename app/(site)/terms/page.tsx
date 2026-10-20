@@ -6,7 +6,7 @@ export const metadata: Metadata = { title: "Terms of Use", description: "The ter
 
 export default function Terms() {
   return (
-    <LegalPage eyebrow="Legal" title="Terms of Use" intro="The terms that apply when you use the Cost Seg Trust website and services.">
+    <LegalPage title="Terms of Use" intro="The terms that apply when you use the Cost Seg Trust website and services.">
       <h2>About our service</h2>
       <p>
         Cost Seg Trust is a comparison service. We request quotes from independent cost segregation providers and organize

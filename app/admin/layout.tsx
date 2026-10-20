@@ -1,0 +1,6 @@
+import "../globals.css";
+
+// The dashboard look (the public site uses its own styles).
+export default function AdminRoot({ children }: { children: React.ReactNode }) {
+  return children;
+}

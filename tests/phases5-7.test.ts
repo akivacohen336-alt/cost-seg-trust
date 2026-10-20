@@ -99,7 +99,7 @@ function submitForm(token: string, fields: Record<string, string>, pdf?: Uint8Ar
 async function samplePdf(text: string) {
   const doc = await PDFDocument.create();
   const page = doc.addPage();
-  page.drawText(text, { x: 50, y: 700, size: 12, font: await doc.embedFont(StandardFonts.Helvetica) });
+  page.drawText(text, { x: 50, y: 700, size: 12, lineHeight: 16, font: await doc.embedFont(StandardFonts.Helvetica) });
   return doc.save();
 }
 
@@ -264,14 +264,24 @@ describe("phase 6: AI standardization", () => {
     fee: 5200, studyType: "Modified / desktop", siteVisit: false, turnaroundDays: 14, reclassifiedPct: 24,
     firstYearDeduction: 480000, firstYearTaxSavings: 177600, assumedTaxRate: 37, auditSupport: "Audit defense, 3 years",
     includesLookback: true, paymentTerms: "Due on delivery", validDays: 30,
+    depreciableBasis: null, regularDepreciation: null, increasedDeduction: null, acceleratedAmount: null, scopeOfWork: "Desktop study and report",
+    firstYearTaxSavingsHigh: null, taxBenefitOn: "extra", firstYearDeductionHigh: null, increasedDeductionHigh: null, reclassifiedPctHigh: null, turnaroundDaysHigh: null, lookbackNote: null,
     inclusions: ["Bonus depreciation schedule"], exclusions: ["Travel billed separately"], caveats: ["Assumes 20% land allocation"],
+    evidence: [
+      { field: "fee", quote: "Study fee: $5,200", page: 1 }, { field: "turnaroundDays", quote: "Delivered in two weeks", page: 1 },
+      { field: "reclassifiedPct", quote: "24% of basis reclassified", page: 1 }, { field: "firstYearDeduction", quote: "Year-one deduction $480,000", page: 1 },
+      { field: "firstYearTaxSavings", quote: "Tax benefit $177,600", page: 1 }, { field: "assumedTaxRate", quote: "at a 37% rate", page: 1 },
+      // Not in the proposal: the AI made this one up, so it must be dropped.
+      { field: "validDays", quote: "Valid for 30 days", page: 1 },
+    ],
   };
+  const proposalLines = "Study fee: $5,200\nDelivered in two weeks\n24% of basis reclassified\nYear-one deduction $480,000\nTax benefit $177,600 at a 37% rate\nRevised tax benefit $180,000";
 
   it("reads the proposal PDF: fills blanks, keeps typed values, and flags differences", async () => {
     const dealId = await newDeal();
     await suppliers.sendDealToSuppliers(dealId, [S.b]);
     fake.state.aiExtract = extract;
-    const pdf = await samplePdf("Proposal: fee $5,200");
+    const pdf = await samplePdf(proposalLines);
     const res = await submitForm(tokensBySupplier().b, { fee: "4900", turnaroundDays: "14" }, pdf, "B proposal.pdf");
     expect(res.status).toBe(200);
     expect(deferred).toHaveLength(1);
@@ -286,8 +296,12 @@ describe("phase 6: AI standardization", () => {
     expect(Number(q.est_first_year_tax_savings)).toBe(177600); // filled from the PDF
     expect(q.ai_filled_fields).not.toContain("fee");
     expect(q.ai_filled_fields).toContain("firstYearTaxSavings");
-    expect(q.ai_mismatches).toEqual([{ field: "fee", label: "Study fee", typed: 4900, pdf: 5200 }]);
+    expect(q.ai_mismatches).toEqual([{ field: "fee", label: "Cost of service (study fee)", typed: 4900, pdf: 5200 }]);
     expect(q.ai_notes.exclusions).toEqual(["Travel billed separately"]);
+    // A number the proposal doesn't state is left out, never guessed.
+    expect(q.valid_days).toBeNull();
+    expect(q.ai_filled_fields).not.toContain("validDays");
+    expect(q.ai_notes.rejected).toEqual([{ field: "validDays", value: 30, reason: "the AI's quote is not in the proposal" }]);
 
     const call = fake.state.ai[0];
     expect(call.body.model).toBe("claude-opus-5-5");
@@ -300,7 +314,7 @@ describe("phase 6: AI standardization", () => {
     expect(blocks[1].text).not.toContain("118 Maple Row");
 
     // Re-running starts from what the supplier typed, so earlier AI fills are re-read.
-    fake.state.aiExtract = { ...extract, firstYearTaxSavings: 180000 };
+    fake.state.aiExtract = { ...extract, firstYearTaxSavings: 180000, evidence: [...extract.evidence, { field: "firstYearTaxSavings", quote: "Revised tax benefit $180,000", page: 1 }] };
     expect((await ai.standardizeQuote(q.id)).status).toBe("done");
     [q] = await sql`select * from supplier_quotes`;
     expect(Number(q.est_first_year_tax_savings)).toBe(180000);
@@ -333,31 +347,30 @@ describe("phase 7: comparison, approval, PDF, client", () => {
     const dealId = await newDeal();
     await suppliers.sendDealToSuppliers(dealId, [S.a, S.b, S.c]);
     const t = tokensBySupplier();
-    await submitForm(t.a, { fee: "4500", studyType: "Full engineering", siteVisit: "yes", turnaroundDays: "21", reclassifiedPct: "28", firstYearDeduction: "560000", firstYearTaxSavings: "207200", auditSupport: "Full audit defense", includesLookback: "yes" });
-    await submitForm(t.b, { fee: "3200", studyType: "Modified / desktop", siteVisit: "no", turnaroundDays: "10", reclassifiedPct: "22", firstYearDeduction: "440000", firstYearTaxSavings: "162800" });
+    await submitForm(t.a, { fee: "4500", studyType: "Full engineering", siteVisit: "yes", turnaroundDays: "21", reclassifiedPct: "28", firstYearDeduction: "560000", firstYearTaxSavings: "207200", taxBenefitOn: "extra", auditSupport: "Full audit defense", includesLookback: "yes" });
+    await submitForm(t.b, { fee: "3200", studyType: "Modified / desktop", siteVisit: "no", turnaroundDays: "10", reclassifiedPct: "22", firstYearDeduction: "440000", firstYearTaxSavings: "162800", taxBenefitOn: "extra" });
     await submitForm(t.c, { action: "decline" });
     return dealId;
   }
 
-  it("builds the comparison with an AI summary, takes edits, makes the PDF, and emails it after approval", async () => {
+  it("builds the comparison with no summary or pick, takes edits, makes the PDF, and emails it after approval", async () => {
     const dealId = await dealWithQuotes();
     expect(await stageOf(dealId)).toBe("quotes_received");
 
-    fake.state.aiSummary = "Two quotes came in.";
+    const aiCalls = fake.state.ai.length;
     expect(await comparison.buildComparison(dealId)).toEqual({ ok: true });
     expect(await stageOf(dealId)).toBe("comparison_ready");
     let view = (await comparison.loadComparison(dealId))!;
-    expect(view.comparison.summary).toBe("Two quotes came in.");
+    expect(view.comparison.summary).toBe(""); // the CEO took the summary and pick off
+    expect(fake.state.ai.length).toBe(aiCalls); // no AI call to write one
     expect(view.columns.map(c => c.name)).toEqual(["Test Supplier A", "Test Supplier B"]);
     expect(view.best.fee).toBe(3200);
-    expect(view.best.firstYearTaxSavings).toBe(207200);
-    const summaryCall = fake.state.ai.at(-1);
-    expect(summaryCall.body.output_config.effort).toBe("low");
-    expect(JSON.stringify(summaryCall.body)).not.toContain("dana.client@example.com");
+    expect(view.best.firstYearTaxSavings).toBeUndefined(); // benefits sit on different bases, so they are never ranked
+    expect(view.best.savingsPerDollar).toBeUndefined(); // the CEO took the per-$1 row off
 
     // Your edits: correct a number, hide names, drop a row.
     const invA = view.quotes[0].inviteId;
-    expect((await comparison.saveComparisonEdits(dealId, { overrides: { [invA]: { fee: 4400, bogus: 1 } as any }, anonymize: true, hiddenRows: ["validDays"], summary: "Edited summary." })).ok).toBe(true);
+    expect((await comparison.saveComparisonEdits(dealId, { overrides: { [invA]: { fee: 4400, bogus: 1 } as any }, anonymize: true, hiddenRows: ["validDays"] })).ok).toBe(true);
     view = (await comparison.loadComparison(dealId))!;
     expect(view.columns.map(c => c.name)).toEqual(["Provider A", "Provider B"]);
     expect(view.columns[0].values.fee).toBe(4400);
@@ -402,13 +415,10 @@ describe("phase 7: comparison, approval, PDF, client", () => {
     expect((await comparison.approveAndSend(dealId, "again")).ok).toBe(false); // can't double-send
   });
 
-  it("uses a plain summary when AI is off, and won't mark sent if email isn't set up", async () => {
+  it("won't mark sent if email isn't set up", async () => {
     const dealId = await dealWithQuotes();
     config.anthropic.apiKey = undefined;
     await comparison.buildComparison(dealId);
-    const view = (await comparison.loadComparison(dealId))!;
-    expect(view.comparison.summary).toBe("We received 2 quotes for your multifamily property. Fees range from $3,200 to $4,500. Estimated first-year tax savings range from $162,800 to $207,200. Test Supplier B offers the most estimated savings per dollar of fee. Test Supplier B is fastest at 10 days.");
-
     expect((await comparison.approveAndSend(dealId, "")).ok).toBe(false); // not generated yet
     await comparison.prepareForApproval(dealId);
     config.resend.apiKey = undefined;
@@ -464,5 +474,58 @@ describe("what suppliers can see", () => {
     expect(land("$400,000")).toBe("$400,000");
     expect(land("ask John at 305 555 0142")).toBe("Provided after engagement");
     expect(land(null)).toBe("Not provided");
+  });
+});
+
+describe("the dashboard on its own, with the real Tacoma quotes", () => {
+  // The same figures Akiva checked line by line on the Tacoma one-pager, typed in by
+  // (test) suppliers the way a supplier would, with no AI and nobody editing.
+  const forms: Record<string, Record<string, string>> = {
+    a: { fee: "8550", siteVisit: "yes", turnaroundDays: "28", turnaroundDaysHigh: "42", lookbackNote: "Not needed (placed in service in 2026)", depreciableBasis: "11062671", regularDepreciation: "106534",
+      firstYearDeduction: "1640393", firstYearDeductionHigh: "2595142", increasedDeduction: "1533859", increasedDeductionHigh: "2488608",
+      firstYearTaxSavings: "567528", firstYearTaxSavingsHigh: "920785", taxBenefitOn: "extra", assumedTaxRate: "37", auditSupport: "Audit representation included, uncapped" },
+    b: { fee: "8900", siteVisit: "yes", turnaroundDays: "28", depreciableBasis: "11246250", firstYearDeduction: "2345221.13", acceleratedAmount: "2258803.37",
+      firstYearTaxSavings: "820827.40", taxBenefitOn: "total", assumedTaxRate: "35", includesLookback: "yes", paymentTerms: "$0 at signing, balance on final report", validDays: "30" },
+    c: { fee: "14500", siteVisit: "yes", turnaroundDays: "21", turnaroundDaysHigh: "28", depreciableBasis: "11246250", regularDepreciation: "288365",
+      firstYearDeduction: "3412675", acceleratedAmount: "3206528", firstYearTaxSavings: "1262690", taxBenefitOn: "total",
+      auditSupport: "Full IRS audit support included", paymentTerms: "50% to begin, balance on delivery of the final report" },
+  };
+
+  it("makes the same one-pager Akiva approved: same figures, honest labels, no client name, nothing made up", async () => {
+    const dealId = await newDeal();
+    await suppliers.sendDealToSuppliers(dealId, [S.a, S.b, S.c]);
+    const t = tokensBySupplier();
+    for (const k of ["a", "b", "c"]) expect((await submitForm(t[k], forms[k])).status).toBe(200);
+
+    // SegPro's basis moved is its own 5, 7 and 15-year amounts added up, so it carries the *.
+    await sql`update supplier_quotes set ai_notes = '{"calculated":["acceleratedAmount"]}' where accelerated_amount = 2258803.37`;
+    config.anthropic.apiKey = undefined;
+    await comparison.buildComparison(dealId);
+    const view = (await comparison.loadComparison(dealId))!;
+    expect(view.checks).toEqual([]); // every provider's figures add up
+    expect(view.best).toEqual({ fee: 8550 }); // green only for an outright winner
+    expect(view.rows.map(r => r.key)).not.toContain("savingsPerDollar");
+
+    expect((await comparison.prepareForApproval(dealId)).ok).toBe(true);
+    const [rep] = await sql`select pdf from pdf_reports`;
+    const { extractText } = await import("unpdf");
+    const text = (await extractText(new Uint8Array(rep.pdf), { mergePages: true })).text.replace(/\s+/g, " ");
+    for (const s of ["$8,550", "$8,900", "$14,500", "$820,827 (tax on all year-1 depreciation, regular depreciation included)",
+      "$1,262,690 (tax on all year-1 depreciation, regular depreciation included)", "(tax on the extra deduction from the study)",
+      "4 to 6 weeks", "3 to 4 weeks", "$3,412,675", "$3,206,528", "$2,258,803 *", "* Added up or divided from that provider's own figures", "$288,365", "$106,534", "Not needed (placed in service in 2026)", "Not stated"]) {
+      expect(text).toContain(s);
+    }
+    for (const s of ["Dana", "Client", "dana.client", "(614)", "per $1", "% of basis moved", "Extra year-1 deduction", "Summary", "Our pick"]) expect(text).not.toContain(s);
+  });
+
+  it("flags figures that don't add up", async () => {
+    const dealId = await newDeal();
+    await suppliers.sendDealToSuppliers(dealId, [S.a, S.b]);
+    const t = tokensBySupplier();
+    await submitForm(t.a, { ...forms.a, firstYearTaxSavings: "600000" }); // not 1,533,859 × 37%
+    await submitForm(t.b, forms.b);
+    await comparison.buildComparison(dealId);
+    const view = (await comparison.loadComparison(dealId))!;
+    expect(view.checks.map(c => c.message).join()).toMatch(/does not equal the extra deduction/);
   });
 });

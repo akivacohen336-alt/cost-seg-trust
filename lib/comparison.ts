@@ -1,19 +1,22 @@
 // Phase 7: the one-page comparison, its approval, the branded PDF and sending it.
+import { consistencyChecks, type CheckWarning } from "./checks";
 import { config } from "./config";
 import { db, logEvent } from "./db";
-import { fallbackSummary, writeComparisonSummary, type ComparisonColumn } from "./ai";
+import { type ComparisonColumn } from "./ai";
 import { loadDeal, setDealStage } from "./deals";
 import { emailHtml, esc, sendEmail } from "./notify";
 import { renderComparisonPdf } from "./pdf";
-import { COMPARISON_ROWS, QUOTE_FIELDS, rowToValues, savingsPerDollar, type QuoteValues } from "./quote-fields";
+import { COMPARISON_ROWS, QUOTE_FIELDS, type ComparisonRow, bestValues, deriveValues, rowToValues, withRatios, type QuoteKey, type QuoteValues } from "./quote-fields";
 
 export type ComparisonView = {
   comparison: any;
   deal: any;
   quotes: { inviteId: string; supplier: string; values: QuoteValues; aiFilled: string[]; mismatches: any[]; hidden: boolean; notes: any }[];
-  columns: (ComparisonColumn & { inviteId: string; aiFilled: string[] })[];
-  rows: typeof COMPARISON_ROWS;
+  columns: (ComparisonColumn & { inviteId: string; aiFilled: string[]; calculated: QuoteKey[] })[];
+  rows: ComparisonRow[];
   best: Record<string, number>;
+  /** Things to look at before approving: figures that don't add up, and AI-read numbers dropped because the proposal doesn't state them. */
+  checks: CheckWarning[];
 };
 
 export async function loadComparison(dealId: string): Promise<ComparisonView | null> {
@@ -33,22 +36,26 @@ export async function loadComparison(dealId: string): Promise<ComparisonView | n
       hidden: (comparison.hidden_invites ?? []).includes(r.invite_id), notes: r.ai_notes ?? {} };
   });
   const visible = quotes.filter(q => !q.hidden);
-  const columns = visible.map((q, i) => ({
-    inviteId: q.inviteId, aiFilled: q.aiFilled,
-    name: comparison.anonymize ? `Provider ${String.fromCharCode(65 + i)}` : q.supplier,
-    values: { ...q.values, savingsPerDollar: savingsPerDollar(q.values) },
-  }));
+  const columns = visible.map((q, i) => {
+    const { values, calculated } = deriveValues(q.values);
+    return {
+      // notes.calculated: figures we added up from the provider's own amounts when entering a quote by hand.
+      inviteId: q.inviteId, aiFilled: q.aiFilled, calculated: [...calculated, ...(q.notes.calculated ?? [])] as QuoteKey[],
+      name: comparison.anonymize ? `Provider ${String.fromCharCode(65 + i)}` : q.supplier,
+      values: withRatios(values),
+    };
+  });
   const rowsShown = COMPARISON_ROWS.filter(r => !(comparison.hidden_rows ?? []).includes(r.key));
-  const best: Record<string, number> = {};
-  for (const r of rowsShown) {
-    if (!r.best) continue;
-    const nums = columns.map(c => Number((c.values as any)[r.key])).filter(n => isFinite(n) && n > 0);
-    if (nums.length > 1) best[r.key] = r.best === "min" ? Math.min(...nums) : Math.max(...nums);
+  const best = bestValues(columns, rowsShown);
+  const checks = consistencyChecks(columns);
+  for (const q of visible) for (const r of q.notes.rejected ?? []) {
+    const label = QUOTE_FIELDS.find(f => f.key === r.field)?.label ?? r.field;
+    checks.push({ provider: columns.find(c => c.inviteId === q.inviteId)!.name, message: `The AI read ${label} as ${r.value}, but it was left out because ${r.reason}. Type it in if the proposal does state it.` });
   }
-  return { comparison, deal, quotes, columns, rows: rowsShown, best };
+  return { comparison, deal, quotes, columns, rows: rowsShown, best, checks };
 }
 
-/** Creates the comparison (or refreshes its summary) from the submitted quotes. */
+/** Creates the comparison from the submitted quotes. */
 export async function buildComparison(dealId: string) {
   const sql = db();
   const [{ n }] = await sql`select count(*)::int n from supplier_invites where deal_id = ${dealId} and status = 'submitted'`;
@@ -56,17 +63,9 @@ export async function buildComparison(dealId: string) {
   await sql`insert into comparisons (deal_id) values (${dealId}) on conflict (deal_id) do nothing`;
   await sql`update comparisons set status = 'draft' where deal_id = ${dealId} and status = 'awaiting_approval'`;
   const view = (await loadComparison(dealId))!;
-  let summary: string, source: string;
-  try {
-    if (!config.anthropic.apiKey) throw new Error("AI not configured");
-    summary = await writeComparisonSummary(view.deal, view.columns);
-    source = "ai";
-  } catch (e) {
-    summary = fallbackSummary(view.deal.property_type, view.columns);
-    source = `standard (${(e as Error).message.slice(0, 120)})`;
-  }
-  await sql`update comparisons set summary = ${summary}, summary_source = ${source} where deal_id = ${dealId}`;
-  await logEvent(dealId, "comparison_built", { quotes: view.columns.length, summary: source === "ai" ? "AI" : "standard" });
+  // No summary or pick on the one-pager (CEO, Oct 20): the table speaks for itself.
+  await sql`update comparisons set summary = '', summary_source = null where deal_id = ${dealId}`;
+  await logEvent(dealId, "comparison_built", { quotes: view.columns.length });
   if (["new_request", "waiting_on_quotes", "quotes_received", "awaiting_approval"].includes(view.deal.stage)) {
     await setDealStage(dealId, "comparison_ready");
   }
