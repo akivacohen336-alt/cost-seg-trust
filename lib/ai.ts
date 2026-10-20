@@ -6,7 +6,7 @@ import { z } from "zod";
 import { verifyEvidence, type Evidence } from "./checks";
 import { config } from "./config";
 import { db, logEvent } from "./db";
-import { COMPARISON_ROWS, QUOTE_FIELDS, STUDY_TYPES, benefitNotComparable, cellText, formatValue, rowToValues, type QuoteKey, type QuoteValues } from "./quote-fields";
+import { QUOTE_FIELDS, STUDY_TYPES, formatValue, rowToValues, type QuoteKey, type QuoteValues } from "./quote-fields";
 
 let client: Anthropic | null = null;
 function anthropic() {
@@ -171,57 +171,6 @@ export async function standardizeQuote(quoteId: string) {
   }
 }
 
-// ---------- Comparison summary ----------
+// ---------- Comparison ----------
 
 export type ComparisonColumn = { name: string; values: QuoteValues & { savingsPerDollar?: number | null; savingsPerDollarHigh?: number | null } };
-
-export async function writeComparisonSummary(deal: { property_type: string; purchase_price: unknown; placed_in_service: unknown }, cols: ComparisonColumn[]) {
-  const table = cols.map(c => ({
-    provider: c.name,
-    ...Object.fromEntries(COMPARISON_ROWS.map(r => [r.label, cellText(c.values as any, r)])),
-  }));
-  const res = await anthropic().beta.messages.create({
-    model: config.anthropic.model,
-    max_tokens: 4000,
-    system: "You write short, plain-English summaries for Cost Seg Trust's one-page cost segregation quote comparisons. The reader is a real estate investor, and often their CPA. Be factual and neutral. You are not giving tax advice.",
-    messages: [{
-      role: "user",
-      content: `Property: ${deal.property_type}, purchase price ${deal.purchase_price == null ? "not given" : "$" + Math.round(Number(deal.purchase_price)).toLocaleString("en-US")}.
-
-Write the summary in 4 to 5 sentences. Start with one sentence that names the provider we recommend and why, for example "Our pick: X, because ...". Then cover the fee range, the range of estimated first-year tax benefit, and any difference that matters (a desktop study versus a full engineering study with a site visit, weaker audit support, or providers using a different depreciable basis or tax rate, which makes their benefit figures not directly comparable). A tax benefit marked as tax on all year-1 depreciation includes depreciation the client would get with no study, so never call it larger than another provider's benefit and never base the recommendation on it. Use only the figures below and never invent a number. A value of "—" means the provider did not state it. Plain sentences only, no headings or bullet points.
-
-${JSON.stringify(table, null, 1)}`,
-    }],
-    output_config: { effort: "low" },
-    betas: ["server-side-fallback-2026-07-01"],
-    fallbacks: "default",
-  });
-  if (res.stop_reason === "refusal") throw new Error("The AI declined to write the summary");
-  const text = res.content.filter(b => b.type === "text").map(b => (b as Anthropic.Beta.BetaTextBlock).text).join("").trim();
-  if (!text) throw new Error("The AI returned an empty summary");
-  return text;
-}
-
-/**
- * Plain summary from the numbers, used when AI is not configured, fails, or
- * mentions a number that isn't in the table. It only states rankings the
- * table itself shows in green, and only compares benefits that are comparable.
- */
-export function fallbackSummary(propertyType: string, cols: ComparisonColumn[], best: Record<string, number> = {}) {
-  if (!cols.length) return "";
-  const pick = (k: string) => cols.filter(c => Number((c.values as any)[k]) > 0);
-  const fees = pick("fee").map(c => Number(c.values.fee));
-  const parts = [`We received ${cols.length} quote${cols.length > 1 ? "s" : ""} for your ${propertyType.toLowerCase()} property.`];
-  if (fees.length > 1) parts.push(`Fees range from ${formatValue(Math.min(...fees), "money")} to ${formatValue(Math.max(...fees), "money")}.`);
-  else if (fees.length) parts.push(`The fee is ${formatValue(fees[0], "money")}.`);
-  const comparable = cols.filter(c => Number(c.values.firstYearTaxSavings) > 0 && !benefitNotComparable(c.values));
-  for (const c of comparable) parts.push(`${c.name} estimates a first-year tax benefit of ${cellText({ ...c.values, taxBenefitOn: null } as any, { key: "firstYearTaxSavings", kind: "money" })} on the extra deduction from the study.`);
-  const other = cols.filter(c => Number(c.values.firstYearTaxSavings) > 0 && benefitNotComparable(c.values));
-  if (other.length) parts.push(`${other.map(c => c.name).join(" and ")} ${other.length > 1 ? "give benefits" : "gives a benefit"} that cannot be compared with the others (see the table).`);
-  const winner = (k: string) => cols.find(c => best[k] !== undefined && Number((c.values as any)[k]) === best[k]);
-  const perDollar = winner("savingsPerDollar");
-  if (perDollar) parts.push(`${perDollar.name} has the highest tax benefit per $1 of fee.`);
-  const fast = winner("turnaroundDays");
-  if (fast) parts.push(`${fast.name} is the fastest, at ${cellText(fast.values as any, { key: "turnaroundDays", kind: "days" })}.`);
-  return parts.join(" ");
-}

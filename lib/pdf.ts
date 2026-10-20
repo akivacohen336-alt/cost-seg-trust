@@ -67,7 +67,7 @@ export async function renderComparisonPdf(view: ComparisonView): Promise<Uint8Ar
   const reg = await doc.embedFont(StandardFonts.Helvetica);
   const bold = await doc.embedFont(StandardFonts.HelveticaBold);
   const W = 792, H = 612, M = 36;
-  let page: PDFPage = doc.addPage([W, H]);
+  const page: PDFPage = doc.addPage([W, H]);
   const text = (p: PDFPage, s: string, x: number, y: number, size: number, font: PDFFont, color = INK) =>
     p.drawText(clean(s), { x, y, size, font, color });
   const right = (p: PDFPage, s: string, y: number, size: number, font: PDFFont, color = INK) =>
@@ -106,7 +106,6 @@ export async function renderComparisonPdf(view: ComparisonView): Promise<Uint8Ar
     ...notes.map((n, i) => `${SUPERSCRIPT[i]} ${n}`),
     cols.some(c => c.calculated.some(k => rows.some(r => r.key === k))) ? "* Added up or divided from that provider's own figures; nothing estimated." : "",
   ].filter(Boolean).flatMap(l => wrap(l, reg, FOOT, W - 2 * M, 3));
-  const summary = String(view.comparison.summary || "").trim();
   const layout = (size: number) => {
     const lh = size + 2.2, pad = 3.5;
     const headLines = cols.map(c => wrap(c.name, bold, size, colW - 2 * pad, 2));
@@ -116,14 +115,11 @@ export async function renderComparisonPdf(view: ComparisonView): Promise<Uint8Ar
       const labelLines = wrap(r.label + mark(r), bold, size, labelW - 2 * pad, 2);
       return { r, lines, labelLines, h: Math.max(labelLines.length, ...lines.map(l => l.length)) * lh + 2 * pad - 2 };
     });
-    const sSize = Math.min(10, size + 0.5);
-    const sLines = summary ? wrap(summary, reg, sSize, W - 2 * M - 16) : [];
-    const total = headH + body.reduce((a, b) => a + b.h, 0) + (summary ? 22 + 26 + sLines.length * (sSize + 4) : 0);
-    return { size, lh, pad, headLines, headH, body, sSize, sLines, total };
+    const total = headH + body.reduce((a, b) => a + b.h, 0);
+    return { size, lh, pad, headLines, headH, body, total };
   };
   const room = (H - 98) - 56 - footLines.length * FOOT_LH;
-  // Never below 8.5pt, so it reads on a laptop and on paper; a table too long
-  // for that moves the summary to a second page rather than shrinking further.
+  // Never below 8.5pt, so it reads on a laptop and on paper.
   const base = n > 6 ? 9 : 10;
   let L = layout(base);
   for (let s = base - 0.5; L.total > room && s >= 8.5; s -= 0.5) L = layout(s);
@@ -147,16 +143,6 @@ export async function renderComparisonPdf(view: ComparisonView): Promise<Uint8Ar
     y -= h;
   });
 
-  // Summary, left off when the box is empty
-  if (summary) {
-    y -= 22;
-    const { sLines, sSize } = L, sl = sSize + 4;
-    const footTop = 50 + footLines.length * FOOT_LH + 6;
-    if (y - 18 - (sLines.length - 1) * sl - 6 < footTop) { page = doc.addPage([W, H]); y = H - 50; }
-    page.drawRectangle({ x: M, y: y - 8 - sLines.length * sl, width: 3, height: 22 + sLines.length * sl, color: GREEN });
-    text(page, "Summary", M + 12, y, 11.5, bold, NAVY);
-    sLines.forEach((l, i) => text(page, l, M + 12, y - 18 - i * sl, sSize, reg));
-  }
   footLines.forEach((l, i) => text(page, l, M, 50 + (footLines.length - 1 - i) * FOOT_LH, FOOT, reg, MUTED));
 
   // Footer on every page

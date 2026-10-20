@@ -25,7 +25,7 @@ const EVENT_TEXT: Record<string, (d: any) => string> = {
   quote_window_closed: d => `Quote window closed: ${d.submitted} quoted, ${d.declined} declined, ${d.expired} didn't respond`,
   ai_standardized: d => `AI read ${d.supplier}'s proposal (${d.filled} filled, ${d.mismatches} mismatches)`,
   ai_failed: d => `AI couldn't read ${d.supplier}'s proposal: ${d.error}`,
-  comparison_built: d => `Comparison built from ${d.quotes} quote(s), ${d.summary} summary`,
+  comparison_built: d => `Comparison built from ${d.quotes} quote(s)`,
   pdf_generated: d => `Comparison PDF v${d.version} generated for approval`,
   sent_to_client: d => `Comparison PDF v${d.version} approved and emailed to ${d.to}`,
 };

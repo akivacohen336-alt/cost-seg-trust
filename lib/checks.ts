@@ -1,7 +1,6 @@
 // Guards that keep made-up numbers off the one-pager when nobody is checking:
-// every number the AI reads must be quoted from the proposal, every number in
-// the AI summary must be in the table, and each provider's own figures must
-// agree with each other.
+// every number the AI reads must be quoted from the proposal, and each
+// provider's own figures must agree with each other.
 import { formatValue, type QuoteKey, type QuoteValues } from "./quote-fields";
 
 /** The fields the AI may fill with a number; each needs a quote from the proposal. */
@@ -60,50 +59,11 @@ export function verifyEvidence(values: QuoteValues, evidence: Evidence[], pdfTex
   return { kept, rejected };
 }
 
-type Col = { name: string; values: Record<string, any> };
-
-/** Numbers a summary may mention: anything in the table, plus the purchase price. */
-function allowedNumbers(cols: Col[], extra: number[]) {
-  const nums = [...extra];
-  for (const c of cols) for (const v of Object.values(c.values)) if (typeof v === "number" && isFinite(v)) {
-    nums.push(v);
-    if (v % 7 === 0) nums.push(v / 7); // turnaround shown in weeks
-  }
-  return nums;
-}
-
-/**
- * The dollar amounts and percents in a summary that are not in the table.
- * "$11.06M" and "$921K" match a table value that rounds to them.
- */
-export function summaryProblems(summary: string, cols: Col[], extra: number[] = []) {
-  const nums = allowedNumbers(cols, extra);
-  const problems: string[] = [];
-  for (const m of summary.replace(/per \$1(?![\d,.])/gi, "").matchAll(/\$\s?(\d(?:[\d,]*\d)?(?:\.\d+)?)\s*([MmKk](?![a-z]))?|(\d(?:[\d,]*\d)?(?:\.\d+)?)\s?%/g)) {
-    const raw = Number((m[1] ?? m[3]).replace(/,/g, ""));
-    const unit = m[2]?.toUpperCase();
-    const scale = unit === "M" ? 1e6 : unit === "K" ? 1e3 : 1;
-    const decimals = ((m[1] ?? m[3]).split(".")[1] ?? "").length;
-    // As written, it must round from a table value: "$11.06M" from 11,062,671, "$820,827" from 820,827.40.
-    const tol = 0.5 * 10 ** -decimals * scale + 1e-6;
-    const target = raw * scale;
-    if (!nums.some(n => Math.abs(n - target) <= tol)) problems.push(m[0].trim());
-  }
-  return problems;
-}
-
-/** Client names or contact details that slipped into a summary. */
-export function clientDetailsIn(summary: string, client: { first_name?: string | null; last_name?: string | null; email?: string | null }) {
-  const words = [client.first_name, client.last_name].map(w => String(w ?? "").trim()).filter(w => w.length >= 2);
-  const found = words.filter(w => new RegExp(`\\b${w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(summary));
-  if (client.email && summary.toLowerCase().includes(client.email.toLowerCase())) found.push(client.email);
-  return found;
-}
 
 export type CheckWarning = { provider: string; message: string };
 
 /** Each provider's own figures checked against each other. */
-export function consistencyChecks(cols: Col[]): CheckWarning[] {
+export function consistencyChecks(cols: { name: string; values: Record<string, any> }[]): CheckWarning[] {
   const out: CheckWarning[] = [];
   const money = (n: unknown) => formatValue(n, "money");
   for (const c of cols) {

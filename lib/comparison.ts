@@ -1,8 +1,8 @@
 // Phase 7: the one-page comparison, its approval, the branded PDF and sending it.
-import { clientDetailsIn, consistencyChecks, summaryProblems, type CheckWarning } from "./checks";
+import { consistencyChecks, type CheckWarning } from "./checks";
 import { config } from "./config";
 import { db, logEvent } from "./db";
-import { fallbackSummary, writeComparisonSummary, type ComparisonColumn } from "./ai";
+import { type ComparisonColumn } from "./ai";
 import { loadDeal, setDealStage } from "./deals";
 import { emailHtml, esc, sendEmail } from "./notify";
 import { renderComparisonPdf } from "./pdf";
@@ -54,7 +54,7 @@ export async function loadComparison(dealId: string): Promise<ComparisonView | n
   return { comparison, deal, quotes, columns, rows: rowsShown, best, checks };
 }
 
-/** Creates the comparison (or refreshes its summary) from the submitted quotes. */
+/** Creates the comparison from the submitted quotes. */
 export async function buildComparison(dealId: string) {
   const sql = db();
   const [{ n }] = await sql`select count(*)::int n from supplier_invites where deal_id = ${dealId} and status = 'submitted'`;
@@ -62,21 +62,9 @@ export async function buildComparison(dealId: string) {
   await sql`insert into comparisons (deal_id) values (${dealId}) on conflict (deal_id) do nothing`;
   await sql`update comparisons set status = 'draft' where deal_id = ${dealId} and status = 'awaiting_approval'`;
   const view = (await loadComparison(dealId))!;
-  let summary: string, source: string;
-  try {
-    if (!config.anthropic.apiKey) throw new Error("AI not configured");
-    summary = await writeComparisonSummary(view.deal, view.columns);
-    // An AI summary may only use numbers that are in the table.
-    const bad = summaryProblems(summary, view.columns, [Number(view.deal.purchase_price)]);
-    if (bad.length) throw new Error(`AI summary used numbers not in the table: ${bad.join(", ")}`);
-    if (clientDetailsIn(summary, view.deal).length) throw new Error("AI summary named the client");
-    source = "ai";
-  } catch (e) {
-    summary = fallbackSummary(view.deal.property_type, view.columns, view.best);
-    source = `standard (${(e as Error).message.slice(0, 120)})`;
-  }
-  await sql`update comparisons set summary = ${summary}, summary_source = ${source} where deal_id = ${dealId}`;
-  await logEvent(dealId, "comparison_built", { quotes: view.columns.length, summary: source === "ai" ? "AI" : "standard" });
+  // No summary or pick on the one-pager (CEO, Oct 20): the table speaks for itself.
+  await sql`update comparisons set summary = '', summary_source = null where deal_id = ${dealId}`;
+  await logEvent(dealId, "comparison_built", { quotes: view.columns.length });
   if (["new_request", "waiting_on_quotes", "quotes_received", "awaiting_approval"].includes(view.deal.stage)) {
     await setDealStage(dealId, "comparison_ready");
   }

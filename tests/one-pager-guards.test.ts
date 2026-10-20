@@ -2,9 +2,8 @@
 // reviewed line by line, plus the mistakes we already made once and must not repeat.
 import { describe, expect, it } from "vitest";
 import { ALL_COMPARISON_ROWS, COMPARISON_ROWS, bestValues, cellText, deriveValues, withRatios, type QuoteValues } from "@/lib/quote-fields";
-import { consistencyChecks, numbersIn, summaryProblems, verifyEvidence } from "@/lib/checks";
-import { fallbackSummary } from "@/lib/ai";
-import { P, PS, T, TS } from "./one-pager-data";
+import { consistencyChecks, numbersIn, verifyEvidence } from "@/lib/checks";
+import { P, T } from "./one-pager-data";
 
 const build = (cols: { name: string; v: QuoteValues }[]) => cols.map(c => ({ name: c.name, values: withRatios(deriveValues(c.v).values) as Record<string, any> }));
 const row = (key: string) => ALL_COMPARISON_ROWS.find(r => r.key === key)!;
@@ -27,9 +26,6 @@ describe("Tacoma one-pager", () => {
   it("finds nothing that fails to add up", () => {
     expect(consistencyChecks(cols)).toEqual([]);
   });
-  it("flags summary numbers that are not in the table, so a person confirms them against the proposal", () => {
-    expect(summaryProblems(TS, cols)).toEqual(["26.22%", "25%", "25%"]); // land values, from the proposals, not table rows
-  });
 });
 
 describe("8-property portfolio one-pager", () => {
@@ -47,18 +43,8 @@ describe("8-property portfolio one-pager", () => {
     expect(COMPARISON_ROWS.some(r => ["reclassifiedPct", "increasedDeduction", "savingsPerDollar"].includes(r.key))).toBe(false);
     expect(bestValues(cols, COMPARISON_ROWS)).toEqual({ fee: 38000 });
   });
-  it("finds nothing that fails to add up, and the approved summary uses only table numbers", () => {
+  it("finds nothing that fails to add up", () => {
     expect(consistencyChecks(cols)).toEqual([]);
-    expect(summaryProblems(PS, cols)).toEqual([]);
-  });
-  it("catches the wrong figures from the first draft", () => {
-    expect(summaryProblems("SegPro's extra deduction is $8,191,819, or 24.5% of basis.", cols)).toEqual(["$8,191,819", "24.5%"]);
-  });
-  it("writes a standard summary with no number outside the table", () => {
-    const best = bestValues(cols, COMPARISON_ROWS);
-    const s = fallbackSummary("multifamily", cols as any, best);
-    expect(s).toContain("SegPro Solutions gives a benefit that cannot be compared");
-    expect(summaryProblems(s, cols)).toEqual([]);
   });
 });
 

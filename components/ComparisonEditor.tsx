@@ -2,8 +2,8 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { approveAndSendAction, buildComparisonAction, generatePdfAction, saveComparisonAction, unlockAction } from "@/app/admin/deal-actions";
-import { clientDetailsIn, consistencyChecks, summaryProblems } from "@/lib/checks";
+import { approveAndSendAction, generatePdfAction, saveComparisonAction, unlockAction } from "@/app/admin/deal-actions";
+import { consistencyChecks } from "@/lib/checks";
 import { bestValues, cellText, deriveValues, formatValue, STUDY_TYPES, withRatios } from "@/lib/quote-fields";
 
 type Quote = { inviteId: string; supplier: string; values: Record<string, any>; aiFilled: string[]; mismatches: any[]; notes: any };
@@ -11,9 +11,9 @@ type Row = { key: string; label: string; kind: string; best?: "min" | "max" };
 type Edits = { summary: string; anonymize: boolean; hiddenRows: string[]; hiddenInvites: string[]; overrides: Record<string, Record<string, any>> };
 
 export default function ComparisonEditor(p: {
-  dealId: string; status: string; summarySource: string; initial: Edits; quotes: Quote[]; rows: Row[];
+  dealId: string; status: string; initial: Edits; quotes: Quote[]; rows: Row[];
   fields: { key: string; kind: string; label: string }[]; reports: { id: string; version: number; filename: string; created: string; sent: string | null }[];
-  defaultMessage: string; clientEmail: string; purchasePrice: number; clientFirst: string; clientLast: string;
+  defaultMessage: string; clientEmail: string;
 }) {
   const router = useRouter();
   const [e, setE] = useState<Edits>(p.initial);
@@ -46,8 +46,6 @@ export default function ComparisonEditor(p: {
       .filter((r: any) => !(e.overrides[c.inviteId] && r.field in e.overrides[c.inviteId]))
       .map((r: any) => ({ provider: c.name, message: `The AI read ${p.fields.find(x => x.key === r.field)?.label ?? r.field} as ${r.value}, but left it out because ${r.reason}. Type it in if the proposal does state it.` }))),
   ];
-  const summaryBad = summaryProblems(e.summary, columns, [p.purchasePrice]);
-  const namesInSummary = clientDetailsIn(e.summary, { first_name: p.clientFirst, last_name: p.clientLast, email: p.clientEmail });
 
   function setCell(inviteId: string, key: string, raw: string) {
     const kind = kindOf(key);
@@ -86,16 +84,14 @@ export default function ComparisonEditor(p: {
           </span>
         </div>
         {!locked ? <p className="small muted" style={{ margin: 0 }}>Click any value to correct it. Green marks the best value in a row. Values the AI read from a proposal PDF are marked “AI”, and values we worked out from the provider's other numbers are marked “calculated”.</p> : null}
-        {checks.length || summaryBad.length || namesInSummary.length ? (
+        {checks.length ? (
           <div className="notice" style={{ background: "var(--warn)", color: "var(--warn-ink)" }} role="alert">
             <b>Check before approving</b>
             <ul style={{ margin: "6px 0 0", paddingLeft: 18 }}>
-              {summaryBad.length ? <li>Summary: {summaryBad.join(", ")} {summaryBad.length > 1 ? "are" : "is"} not in the table. Keep {summaryBad.length > 1 ? "them" : "it"} only if a proposal states {summaryBad.length > 1 ? "them" : "it"}.</li> : null}
-              {namesInSummary.length ? <li>Summary: it mentions {namesInSummary.join(", ")}. Take the client's name out of the summary.</li> : null}
               {checks.map((c, i) => <li key={i}>{c.provider}: {c.message}</li>)}
             </ul>
           </div>
-        ) : !locked ? <p className="notice ok" style={{ margin: 0 }}>Checks passed: each provider's figures add up, every number in the summary is in the table, and the summary doesn't name the client.</p> : null}
+        ) : !locked ? <p className="notice ok" style={{ margin: 0 }}>Checks passed: each provider's figures add up.</p> : null}
         <div className="tablewrap">
           <table>
             <thead><tr><th></th>{columns.map(c => <th key={c.inviteId} style={{ textTransform: "none", letterSpacing: 0, fontSize: ".86rem", color: "var(--heading)" }}>{c.name}</th>)}</tr></thead>
@@ -126,9 +122,6 @@ export default function ComparisonEditor(p: {
             </tbody>
           </table>
         </div>
-        <label className="field">Summary for the client {p.summarySource ? <span className="opt">({p.summarySource.startsWith("ai") ? "written by AI, edit freely" : "standard summary; AI wasn't used"})</span> : null}
-          <textarea value={e.summary} disabled={locked} onChange={ev => update(x => ({ ...x, summary: ev.target.value }))} style={{ minHeight: 110 }} />
-        </label>
         {!locked ? (
           <details>
             <summary className="small" style={{ cursor: "pointer", fontWeight: 600 }}>Show or hide suppliers and rows</summary>
@@ -160,12 +153,6 @@ export default function ComparisonEditor(p: {
         {!locked ? (
           <div className="row">
             <button className="btn" disabled={pending || !dirty} onClick={save}>{dirty ? "Save changes" : "Saved"}</button>
-            <button className="btn" disabled={pending} onClick={() => run(async () => {
-              if (dirty) { const s = await saveComparisonAction(p.dealId, e); if (!s.ok) return s; }
-              const r = await buildComparisonAction(p.dealId);
-              if (r.ok) window.location.reload();
-              return { ...r, message: "Summary rewritten from the latest numbers." };
-            })}>Rewrite summary</button>
             <button className="btn dark" disabled={pending || columns.length === 0} onClick={() => run(async () => {
               if (dirty) { const s = await saveComparisonAction(p.dealId, e); if (!s.ok) return s; }
               return generatePdfAction(p.dealId);

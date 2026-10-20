@@ -5,7 +5,6 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vites
 import { randomUUID } from "node:crypto";
 import { PDFDocument, StandardFonts } from "pdf-lib";
 import { createFakeServices } from "./fake-services";
-import { summaryProblems } from "@/lib/checks";
 
 // Capture after() callbacks so tests can run them explicitly.
 const deferred: (() => unknown)[] = [];
@@ -354,26 +353,24 @@ describe("phase 7: comparison, approval, PDF, client", () => {
     return dealId;
   }
 
-  it("builds the comparison with an AI summary, takes edits, makes the PDF, and emails it after approval", async () => {
+  it("builds the comparison with no summary or pick, takes edits, makes the PDF, and emails it after approval", async () => {
     const dealId = await dealWithQuotes();
     expect(await stageOf(dealId)).toBe("quotes_received");
 
-    fake.state.aiSummary = "Two quotes came in.";
+    const aiCalls = fake.state.ai.length;
     expect(await comparison.buildComparison(dealId)).toEqual({ ok: true });
     expect(await stageOf(dealId)).toBe("comparison_ready");
     let view = (await comparison.loadComparison(dealId))!;
-    expect(view.comparison.summary).toBe("Two quotes came in.");
+    expect(view.comparison.summary).toBe(""); // the CEO took the summary and pick off
+    expect(fake.state.ai.length).toBe(aiCalls); // no AI call to write one
     expect(view.columns.map(c => c.name)).toEqual(["Test Supplier A", "Test Supplier B"]);
     expect(view.best.fee).toBe(3200);
     expect(view.best.firstYearTaxSavings).toBeUndefined(); // benefits sit on different bases, so they are never ranked
     expect(view.best.savingsPerDollar).toBeUndefined(); // the CEO took the per-$1 row off
-    const summaryCall = fake.state.ai.at(-1);
-    expect(summaryCall.body.output_config.effort).toBe("low");
-    expect(JSON.stringify(summaryCall.body)).not.toContain("dana.client@example.com");
 
     // Your edits: correct a number, hide names, drop a row.
     const invA = view.quotes[0].inviteId;
-    expect((await comparison.saveComparisonEdits(dealId, { overrides: { [invA]: { fee: 4400, bogus: 1 } as any }, anonymize: true, hiddenRows: ["validDays"], summary: "Edited summary." })).ok).toBe(true);
+    expect((await comparison.saveComparisonEdits(dealId, { overrides: { [invA]: { fee: 4400, bogus: 1 } as any }, anonymize: true, hiddenRows: ["validDays"] })).ok).toBe(true);
     view = (await comparison.loadComparison(dealId))!;
     expect(view.columns.map(c => c.name)).toEqual(["Provider A", "Provider B"]);
     expect(view.columns[0].values.fee).toBe(4400);
@@ -418,13 +415,10 @@ describe("phase 7: comparison, approval, PDF, client", () => {
     expect((await comparison.approveAndSend(dealId, "again")).ok).toBe(false); // can't double-send
   });
 
-  it("uses a plain summary when AI is off, and won't mark sent if email isn't set up", async () => {
+  it("won't mark sent if email isn't set up", async () => {
     const dealId = await dealWithQuotes();
     config.anthropic.apiKey = undefined;
     await comparison.buildComparison(dealId);
-    const view = (await comparison.loadComparison(dealId))!;
-    expect(view.comparison.summary).toBe("We received 2 quotes for your multifamily property. Fees range from $3,200 to $4,500. Test Supplier A estimates a first-year tax benefit of $207,200 on the extra deduction from the study. Test Supplier B estimates a first-year tax benefit of $162,800 on the extra deduction from the study. Test Supplier B is the fastest, at 10 days.");
-
     expect((await comparison.approveAndSend(dealId, "")).ok).toBe(false); // not generated yet
     await comparison.prepareForApproval(dealId);
     config.resend.apiKey = undefined;
@@ -509,10 +503,6 @@ describe("the dashboard on its own, with the real Tacoma quotes", () => {
     expect(view.checks).toEqual([]); // every provider's figures add up
     expect(view.best).toEqual({ fee: 8550 }); // green only for an outright winner
     expect(view.rows.map(r => r.key)).not.toContain("savingsPerDollar");
-    const summary = view.comparison.summary;
-    expect(summaryProblems(summary, view.columns, [2_400_000])).toEqual([]);
-    expect(summary).not.toMatch(/Dana|Client|dana\.client/);
-    expect(summary).toContain("Test Supplier B and Test Supplier C give benefits that cannot be compared");
 
     expect((await comparison.prepareForApproval(dealId)).ok).toBe(true);
     const [rep] = await sql`select pdf from pdf_reports`;
@@ -523,20 +513,17 @@ describe("the dashboard on its own, with the real Tacoma quotes", () => {
       "4 to 6 weeks", "3 to 4 weeks", "$3,412,675", "$3,206,528", "$288,365", "$106,534", "Not needed (placed in service in 2026)", "Not stated"]) {
       expect(text).toContain(s);
     }
-    for (const s of ["Dana", "Client", "dana.client", "(614)", "per $1", "% of basis moved", "Extra year-1 deduction"]) expect(text).not.toContain(s);
+    for (const s of ["Dana", "Client", "dana.client", "(614)", "per $1", "% of basis moved", "Extra year-1 deduction", "Summary", "Our pick"]) expect(text).not.toContain(s);
   });
 
-  it("flags figures that don't add up and an AI summary that names the client", async () => {
+  it("flags figures that don't add up", async () => {
     const dealId = await newDeal();
     await suppliers.sendDealToSuppliers(dealId, [S.a, S.b]);
     const t = tokensBySupplier();
     await submitForm(t.a, { ...forms.a, firstYearTaxSavings: "600000" }); // not 1,533,859 × 37%
     await submitForm(t.b, forms.b);
-    fake.state.aiSummary = "Our pick for Dana: Test Supplier A at $8,550.";
     await comparison.buildComparison(dealId);
     const view = (await comparison.loadComparison(dealId))!;
-    expect(view.comparison.summary).not.toContain("Dana");
-    expect(view.comparison.summary_source).toMatch(/named the client/);
     expect(view.checks.map(c => c.message).join()).toMatch(/does not equal the extra deduction/);
   });
 });

@@ -72,7 +72,7 @@ The database sets itself up: when the app starts it creates or upgrades every ta
 | `HUBSPOT_PRIVATE_APP_TOKEN` | for HubSpot | |
 | `HUBSPOT_PIPELINE_LABEL` | no | defaults to `Cost Seg Trust` |
 | `HUBSPOT_PORTAL_ID` | no | your HubSpot account ID, makes deal IDs clickable in the admin |
-| `ANTHROPIC_API_KEY` | for AI | reads proposal PDFs and writes the comparison summary; without it suppliers' typed numbers and a plain summary are used |
+| `ANTHROPIC_API_KEY` | for AI | reads proposal PDFs; without it suppliers' typed numbers are used |
 | `CRON_SECRET` | for the 40-hour clock | random string; the scheduler sends it as `Authorization: Bearer <CRON_SECRET>` |
 
 When putting `ADMIN_PASSWORD_HASH` in a local `.env.local` file, write each `$` as `\$`. Vercel's settings screen takes the hash as-is.
@@ -83,7 +83,7 @@ When putting `ADMIN_PASSWORD_HASH` in a local `.env.local` file, write each `$` 
 2. The supplier fills in the form and/or attaches a proposal PDF (up to 4 MB), or declines. Each response alerts you by email and text. When everyone has responded and at least one quote is in, the deal moves to Quotes Received.
 3. The 40-hour clock (`/api/cron/deadlines`, hourly): one reminder with a fresh link after 24 hours (the old link keeps working), then at 40 hours open invites become "No response", the window closes and you are alerted. Late suppliers can still submit. Opening the admin also runs the check.
 4. If a PDF is attached, AI reads it into the standard fields. What the supplier typed always wins; AI fills blanks; differences over 1% are flagged on the deal page for you to check.
-5. **Build side-by-side comparison** creates the one-pager with a short AI summary (or a plain summary without AI). Click any value to correct it, hide suppliers or rows, or show "Provider A, B…" instead of names.
+5. **Build side-by-side comparison** creates the one-pager: the side-by-side table only, with no summary or pick. Click any value to correct it, hide suppliers or rows, or show "Provider A, B…" instead of names.
 6. **Generate PDF for approval** locks it and makes the branded PDF. **Approve & send to client** emails it with your message (replies go to your contact email). **Make changes** unlocks it; each regenerated PDF is kept as a new version.
 
 ### Scheduler
