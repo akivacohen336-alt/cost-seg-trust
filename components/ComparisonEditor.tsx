@@ -12,7 +12,7 @@ type Edits = { summary: string; anonymize: boolean; hiddenRows: string[]; hidden
 
 export default function ComparisonEditor(p: {
   dealId: string; status: string; summarySource: string; initial: Edits; quotes: Quote[]; rows: Row[];
-  fields: { key: string; kind: string }[]; reports: { id: string; version: number; filename: string; created: string; sent: string | null }[];
+  fields: { key: string; kind: string; label: string }[]; reports: { id: string; version: number; filename: string; created: string; sent: string | null }[];
   defaultMessage: string; clientEmail: string; purchasePrice: number;
 }) {
   const router = useRouter();
@@ -44,7 +44,7 @@ export default function ComparisonEditor(p: {
     ...consistencyChecks(columns),
     ...columns.flatMap(c => (c.notes?.rejected ?? [])
       .filter((r: any) => !(e.overrides[c.inviteId] && r.field in e.overrides[c.inviteId]))
-      .map((r: any) => ({ provider: c.name, message: `The AI read ${p.rows.find(x => x.key === r.field)?.label ?? r.field} as ${r.value}, but left it out because ${r.reason}. Type it in if the proposal does state it.` }))),
+      .map((r: any) => ({ provider: c.name, message: `The AI read ${p.fields.find(x => x.key === r.field)?.label ?? r.field} as ${r.value}, but left it out because ${r.reason}. Type it in if the proposal does state it.` }))),
   ];
   const summaryBad = summaryProblems(e.summary, columns, [p.purchasePrice]);
 

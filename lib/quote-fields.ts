@@ -46,7 +46,7 @@ export type QuoteValues = { [K in QuoteKey]?: number | string | boolean | null }
 export type ComparisonRow = { key: QuoteKey | "savingsPerDollar"; label: string; kind: QuoteFieldKind | "ratio" | "days"; best?: "min" | "max"; note?: string };
 export const BASIS_NOTE = "Each provider's own estimate, on its own depreciable basis and tax rate (see those rows). Different land values account for much of the gap, not only a better study.";
 export const YEAR1_NOTE = "With 100% bonus, year-1 depreciation with the study = basis moved to 5, 7 and 15-year property + regular depreciation on the rest.";
-export const COMPARISON_ROWS: ComparisonRow[] = [
+export const ALL_COMPARISON_ROWS: ComparisonRow[] = [
   { key: "firstYearTaxSavings", label: "First-year tax benefit", kind: "money", note: BASIS_NOTE },
   { key: "regularDepreciation", label: "Regular depreciation, year 1 (no study)", kind: "money" },
   { key: "firstYearDeduction", label: "Total year-1 depreciation with the study", kind: "money", note: YEAR1_NOTE },
@@ -65,6 +65,9 @@ export const COMPARISON_ROWS: ComparisonRow[] = [
   { key: "paymentTerms", label: "Payment terms", kind: "text" },
   { key: "validDays", label: "Quote valid for", kind: "days" },
 ];
+/** Rows the CEO took off the one-pager (Oct 20). Their values are still checked behind the scenes. */
+export const REMOVED_ROWS = ["reclassifiedPct", "increasedDeduction", "savingsPerDollar"];
+export const COMPARISON_ROWS = ALL_COMPARISON_ROWS.filter(r => !REMOVED_ROWS.includes(r.key));
 
 export function formatValue(v: unknown, kind: string): string {
   if (v == null || v === "" || (typeof v === "number" && !isFinite(v))) return "—";
@@ -116,6 +119,7 @@ export const savingsPerDollarHigh = (v: QuoteValues) => {
 };
 export const withRatios = <T extends QuoteValues>(v: T) => ({ ...v, savingsPerDollar: savingsPerDollar(v), savingsPerDollarHigh: savingsPerDollarHigh(v) });
 
+const EXTRA_NOTE = "tax on the extra deduction from the study";
 const TOTAL_NOTE = "tax on all year-1 depreciation, regular depreciation included";
 /** Rows a provider may give as a conservative-to-high range, and where the high end is kept. */
 export const HIGH_END: Record<string, QuoteKey> = {
@@ -134,7 +138,8 @@ export function cellText(values: Record<string, any>, row: { key: string; kind: 
   if (row.key === "includesLookback" && values.lookbackNote) return String(values.lookbackNote);
   if (row.key === "firstYearTaxSavings") {
     if (v == null) return "—";
-    return values.taxBenefitOn === "total" ? `${range} (${TOTAL_NOTE})` : range;
+    // Says what each benefit is figured on, since the extra-deduction row is no longer shown.
+    return values.taxBenefitOn === "total" ? `${range} (${TOTAL_NOTE})` : values.taxBenefitOn === "extra" ? `${range} (${EXTRA_NOTE})` : range;
   }
   if (row.key === "savingsPerDollar") {
     const why = values.firstYearTaxSavings != null ? benefitNotComparable(values) : null;

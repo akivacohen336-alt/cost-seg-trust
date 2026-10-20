@@ -1,21 +1,23 @@
 // The safety checks on the one-pager, run against the two real comparisons Akiva
 // reviewed line by line, plus the mistakes we already made once and must not repeat.
 import { describe, expect, it } from "vitest";
-import { COMPARISON_ROWS, bestValues, cellText, deriveValues, withRatios, type QuoteValues } from "@/lib/quote-fields";
+import { ALL_COMPARISON_ROWS, COMPARISON_ROWS, bestValues, cellText, deriveValues, withRatios, type QuoteValues } from "@/lib/quote-fields";
 import { consistencyChecks, numbersIn, summaryProblems, verifyEvidence } from "@/lib/checks";
 import { fallbackSummary } from "@/lib/ai";
 import { P, PS, T, TS } from "./one-pager-data";
 
 const build = (cols: { name: string; v: QuoteValues }[]) => cols.map(c => ({ name: c.name, values: withRatios(deriveValues(c.v).values) as Record<string, any> }));
-const row = (key: string) => COMPARISON_ROWS.find(r => r.key === key)!;
+const row = (key: string) => ALL_COMPARISON_ROWS.find(r => r.key === key)!;
 const cells = (cols: ReturnType<typeof build>, key: string) => cols.map(c => cellText(c.values, row(key)));
 
 describe("Tacoma one-pager", () => {
   const cols = build(T);
   it("shows each figure as the proposal states it", () => {
-    expect(cells(cols, "firstYearTaxSavings")).toEqual(["$567,528 – $920,785", "$820,827 (tax on all year-1 depreciation, regular depreciation included)"]);
-    expect(cells(cols, "increasedDeduction")).toEqual(["$1,533,859 – $2,488,608", cellText({}, row("increasedDeduction"))]);
-    expect(cells(cols, "turnaroundDays")).toEqual(["4 to 6 weeks", "4 weeks"]);
+    expect(cells(cols, "firstYearTaxSavings")).toEqual(["$567,528 – $920,785 (tax on the extra deduction from the study)", "$820,827 (tax on all year-1 depreciation, regular depreciation included)", "$1,262,690 (tax on all year-1 depreciation, regular depreciation included)"]);
+    expect(cells(cols, "increasedDeduction")).toEqual(["$1,533,859 – $2,488,608", cellText({}, row("increasedDeduction")), "$3,124,310"]);
+    expect(cells(cols, "turnaroundDays")).toEqual(["4 to 6 weeks", "4 weeks", "3 to 4 weeks"]);
+    expect(cells(cols, "assumedTaxRate")[2]).toBe(cellText({}, row("assumedTaxRate"))); // CRE never states its rate
+    expect(cells(cols, "acceleratedAmount")[2]).toBe("$3,206,528");
     expect(cells(cols, "savingsPerDollar")[1]).toBe("Not comparable (benefit includes regular depreciation)");
     expect(cells(cols, "includesLookback")[0]).toBe("Not needed (placed in service in 2026)");
   });
@@ -39,7 +41,11 @@ describe("8-property portfolio one-pager", () => {
     expect(cells(cols, "savingsPerDollar")[2]).toBe("Not comparable (benefit includes regular depreciation)");
   });
   it("ranks per-$1 only among benefits on the same basis", () => {
-    expect(bestValues(cols, COMPARISON_ROWS)).toEqual({ fee: 38000, savingsPerDollar: 4_091_381.25 / 40_000 });
+    expect(bestValues(cols, ALL_COMPARISON_ROWS)).toEqual({ fee: 38000, savingsPerDollar: 4_091_381.25 / 40_000 });
+  });
+  it("leaves off the rows the CEO removed", () => {
+    expect(COMPARISON_ROWS.some(r => ["reclassifiedPct", "increasedDeduction", "savingsPerDollar"].includes(r.key))).toBe(false);
+    expect(bestValues(cols, COMPARISON_ROWS)).toEqual({ fee: 38000 });
   });
   it("finds nothing that fails to add up, and the approved summary uses only table numbers", () => {
     expect(consistencyChecks(cols)).toEqual([]);
@@ -69,7 +75,7 @@ describe("figures that don't add up", () => {
   it("warns when it isn't stated what the benefit is figured on", () => {
     const cols = build([{ name: "X", v: { fee: 5000, firstYearTaxSavings: 100_000 } }]);
     expect(consistencyChecks(cols)[0].message).toMatch(/not stated whether/);
-    expect(bestValues(cols, COMPARISON_ROWS).savingsPerDollar).toBeUndefined();
+    expect(bestValues(cols, ALL_COMPARISON_ROWS).savingsPerDollar).toBeUndefined();
   });
 });
 

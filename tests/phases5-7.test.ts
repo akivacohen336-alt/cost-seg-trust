@@ -365,7 +365,7 @@ describe("phase 7: comparison, approval, PDF, client", () => {
     expect(view.columns.map(c => c.name)).toEqual(["Test Supplier A", "Test Supplier B"]);
     expect(view.best.fee).toBe(3200);
     expect(view.best.firstYearTaxSavings).toBeUndefined(); // benefits sit on different bases, so they are never ranked
-    expect(view.best.savingsPerDollar).toBeGreaterThan(0);
+    expect(view.best.savingsPerDollar).toBeUndefined(); // the CEO took the per-$1 row off
     const summaryCall = fake.state.ai.at(-1);
     expect(summaryCall.body.output_config.effort).toBe("low");
     expect(JSON.stringify(summaryCall.body)).not.toContain("dana.client@example.com");
@@ -422,7 +422,7 @@ describe("phase 7: comparison, approval, PDF, client", () => {
     config.anthropic.apiKey = undefined;
     await comparison.buildComparison(dealId);
     const view = (await comparison.loadComparison(dealId))!;
-    expect(view.comparison.summary).toBe("We received 2 quotes for your multifamily property. Fees range from $3,200 to $4,500. Test Supplier A estimates a first-year tax benefit of $207,200 on the extra deduction from the study. Test Supplier B estimates a first-year tax benefit of $162,800 on the extra deduction from the study. Test Supplier B has the highest tax benefit per $1 of fee. Test Supplier B is the fastest, at 10 days.");
+    expect(view.comparison.summary).toBe("We received 2 quotes for your multifamily property. Fees range from $3,200 to $4,500. Test Supplier A estimates a first-year tax benefit of $207,200 on the extra deduction from the study. Test Supplier B estimates a first-year tax benefit of $162,800 on the extra deduction from the study. Test Supplier B is the fastest, at 10 days.");
 
     expect((await comparison.approveAndSend(dealId, "")).ok).toBe(false); // not generated yet
     await comparison.prepareForApproval(dealId);

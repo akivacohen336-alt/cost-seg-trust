@@ -215,7 +215,7 @@ export function fallbackSummary(propertyType: string, cols: ComparisonColumn[], 
   if (fees.length > 1) parts.push(`Fees range from ${formatValue(Math.min(...fees), "money")} to ${formatValue(Math.max(...fees), "money")}.`);
   else if (fees.length) parts.push(`The fee is ${formatValue(fees[0], "money")}.`);
   const comparable = cols.filter(c => Number(c.values.firstYearTaxSavings) > 0 && !benefitNotComparable(c.values));
-  for (const c of comparable) parts.push(`${c.name} estimates a first-year tax benefit of ${cellText(c.values as any, { key: "firstYearTaxSavings", kind: "money" })} on the extra deduction from the study.`);
+  for (const c of comparable) parts.push(`${c.name} estimates a first-year tax benefit of ${cellText({ ...c.values, taxBenefitOn: null } as any, { key: "firstYearTaxSavings", kind: "money" })} on the extra deduction from the study.`);
   const other = cols.filter(c => Number(c.values.firstYearTaxSavings) > 0 && benefitNotComparable(c.values));
   if (other.length) parts.push(`${other.map(c => c.name).join(" and ")} ${other.length > 1 ? "give benefits" : "gives a benefit"} that cannot be compared with the others (see the table).`);
   const winner = (k: string) => cols.find(c => best[k] !== undefined && Number((c.values as any)[k]) === best[k]);

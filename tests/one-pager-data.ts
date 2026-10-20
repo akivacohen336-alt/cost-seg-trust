@@ -1,4 +1,4 @@
-// The two real comparisons Akiva reviewed line by line (Oct 19-20): Tacoma and the 8-property portfolio.
+// The real comparisons Akiva reviewed line by line (Oct 19-20): Tacoma (with CRE added Oct 20) and the 8-property portfolio.
 import type { QuoteValues } from "@/lib/quote-fields";
 type Col = { name: string; v: QuoteValues; calc?: string[] };
 export const T: Col[] = [
@@ -12,8 +12,12 @@ export const T: Col[] = [
       firstYearTaxSavings: 820_827.40, taxBenefitOn: "total", assumedTaxRate: 35,
       scopeOfWork: "Purchase price allocation study, on-site inspection (inspection fee capped at $1,000), IRS quality report; within 4 weeks",
       auditSupport: "IRS audit assistance if needed", includesLookback: true, paymentTerms: "$0 at signing, balance on final report", validDays: 30 }, calc: ["acceleratedAmount"] },
+    { name: "Cost Recovery Experts", v: { fee: 14_500, siteVisit: true, turnaroundDays: 21, turnaroundDaysHigh: 28, depreciableBasis: 11_246_250, regularDepreciation: 288_365,
+      firstYearDeduction: 3_412_675, increasedDeduction: 3_124_310, acceleratedAmount: 2_565_222 + 641_306, firstYearTaxSavings: 1_262_690, taxBenefitOn: "total",
+      scopeOfWork: "Full engineered study, on-site visit by an engineer (required; its fee is to be determined and is not in the $14,500), final engineered report; 3 to 4 weeks",
+      auditSupport: "Full IRS audit support included", paymentTerms: "50% to begin, balance on delivery of the final report" }, calc: ["acceleratedAmount"] },
   ];
-export const TS = "Our pick: SegPro Solutions, for delivery within 4 weeks against CSSI's 4 to 6, with both including an on-site inspection at nearly the same fee ($8,900 and $8,550). The tax benefits cannot be ranked against each other: CSSI's $567,528 to $920,785 is the tax on the extra deduction from the study, while SegPro's $820,827 is the tax on all year-1 depreciation, regular depreciation included. Their bases differ ($11.06M and $11.25M) because CSSI used the county's 26.22% land value and SegPro used 25%; CSSI offered to rerun at 25%. CSSI's analysis also uses an August 1, 2026 placed-in-service date, while SegPro used August 27, 2026, the purchase date Aron gave. Choose CSSI if you prefer a full engineering-based study with uncapped audit representation.";
+export const TS = "Our pick: SegPro Solutions, for delivery within 4 weeks with an on-site inspection included, at $8,900. The tax benefits cannot be ranked against each other: CSSI's $567,528 to $920,785 is the tax on the extra deduction from the study, while SegPro's $820,827 and Cost Recovery Experts' $1,262,690 are the tax on all year-1 depreciation, regular depreciation included. Cost Recovery Experts estimates the most year-1 depreciation ($3,412,675) and may deliver soonest (3 to 4 weeks), but its $14,500 fee leaves out the site visit it requires, which it will price later. Bases differ because CSSI used the county's 26.22% land value and the other two used 25%; CSSI offered to rerun at 25%. CSSI used an August 1, 2026 placed-in-service date and SegPro used August 27, 2026, the purchase date Aron gave.";
 export const P: Col[] = [
     { name: "CSSI", v: { fee: 38_000, depreciableBasis: 28_056_170, regularDepreciation: 618_606, firstYearDeduction: 6_303_059, firstYearDeductionHigh: 9_012_650, increasedDeduction: 5_684_453, increasedDeductionHigh: 8_394_044,
       reclassifiedPct: 21, reclassifiedPctHigh: 30, firstYearTaxSavings: 2_103_248, firstYearTaxSavingsHigh: 3_105_796, taxBenefitOn: "extra", assumedTaxRate: 37,
