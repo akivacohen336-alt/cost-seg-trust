@@ -117,8 +117,8 @@ export async function renderComparisonPdf(view: ComparisonView): Promise<Uint8Ar
       return { r, lines, labelLines, h: Math.max(labelLines.length, ...lines.map(l => l.length)) * lh + 2 * pad - 2 };
     });
     const sSize = Math.min(10, size + 0.5);
-    const sLines = wrap(summary, reg, sSize, W - 2 * M - 16);
-    const total = headH + body.reduce((a, b) => a + b.h, 0) + 22 + 26 + sLines.length * (sSize + 4);
+    const sLines = summary ? wrap(summary, reg, sSize, W - 2 * M - 16) : [];
+    const total = headH + body.reduce((a, b) => a + b.h, 0) + (summary ? 22 + 26 + sLines.length * (sSize + 4) : 0);
     return { size, lh, pad, headLines, headH, body, sSize, sLines, total };
   };
   const room = (H - 98) - 56 - footLines.length * FOOT_LH;
@@ -147,14 +147,16 @@ export async function renderComparisonPdf(view: ComparisonView): Promise<Uint8Ar
     y -= h;
   });
 
-  // Summary
-  y -= 22;
-  const { sLines, sSize } = L, sl = sSize + 4;
-  const footTop = 50 + footLines.length * FOOT_LH + 6;
-  if (y - 18 - (sLines.length - 1) * sl - 6 < footTop) { page = doc.addPage([W, H]); y = H - 50; }
-  page.drawRectangle({ x: M, y: y - 8 - sLines.length * sl, width: 3, height: 22 + sLines.length * sl, color: GREEN });
-  text(page, "Summary", M + 12, y, 11.5, bold, NAVY);
-  sLines.forEach((l, i) => text(page, l, M + 12, y - 18 - i * sl, sSize, reg));
+  // Summary, left off when the box is empty
+  if (summary) {
+    y -= 22;
+    const { sLines, sSize } = L, sl = sSize + 4;
+    const footTop = 50 + footLines.length * FOOT_LH + 6;
+    if (y - 18 - (sLines.length - 1) * sl - 6 < footTop) { page = doc.addPage([W, H]); y = H - 50; }
+    page.drawRectangle({ x: M, y: y - 8 - sLines.length * sl, width: 3, height: 22 + sLines.length * sl, color: GREEN });
+    text(page, "Summary", M + 12, y, 11.5, bold, NAVY);
+    sLines.forEach((l, i) => text(page, l, M + 12, y - 18 - i * sl, sSize, reg));
+  }
   footLines.forEach((l, i) => text(page, l, M, 50 + (footLines.length - 1 - i) * FOOT_LH, FOOT, reg, MUTED));
 
   // Footer on every page
