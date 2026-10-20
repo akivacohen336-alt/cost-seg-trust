@@ -92,6 +92,14 @@ export function summaryProblems(summary: string, cols: Col[], extra: number[] = 
   return problems;
 }
 
+/** Client names or contact details that slipped into a summary. */
+export function clientDetailsIn(summary: string, client: { first_name?: string | null; last_name?: string | null; email?: string | null }) {
+  const words = [client.first_name, client.last_name].map(w => String(w ?? "").trim()).filter(w => w.length >= 2);
+  const found = words.filter(w => new RegExp(`\\b${w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(summary));
+  if (client.email && summary.toLowerCase().includes(client.email.toLowerCase())) found.push(client.email);
+  return found;
+}
+
 export type CheckWarning = { provider: string; message: string };
 
 /** Each provider's own figures checked against each other. */

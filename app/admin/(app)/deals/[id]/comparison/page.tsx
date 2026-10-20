@@ -43,6 +43,8 @@ export default async function ComparisonPage({ params }: { params: Promise<{ id:
         defaultMessage={c.client_message ?? defaultClientMessage(d, view.columns.length)}
         clientEmail={d.email}
         purchasePrice={Number(d.purchase_price)}
+        clientFirst={d.first_name ?? ""}
+        clientLast={d.last_name ?? ""}
       />
     </>
   );

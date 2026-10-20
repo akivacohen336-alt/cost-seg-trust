@@ -5,6 +5,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vites
 import { randomUUID } from "node:crypto";
 import { PDFDocument, StandardFonts } from "pdf-lib";
 import { createFakeServices } from "./fake-services";
+import { summaryProblems } from "@/lib/checks";
 
 // Capture after() callbacks so tests can run them explicitly.
 const deferred: (() => unknown)[] = [];
@@ -479,5 +480,63 @@ describe("what suppliers can see", () => {
     expect(land("$400,000")).toBe("$400,000");
     expect(land("ask John at 305 555 0142")).toBe("Provided after engagement");
     expect(land(null)).toBe("Not provided");
+  });
+});
+
+describe("the dashboard on its own, with the real Tacoma quotes", () => {
+  // The same figures Akiva checked line by line on the Tacoma one-pager, typed in by
+  // (test) suppliers the way a supplier would, with no AI and nobody editing.
+  const forms: Record<string, Record<string, string>> = {
+    a: { fee: "8550", siteVisit: "yes", turnaroundDays: "28", turnaroundDaysHigh: "42", lookbackNote: "Not needed (placed in service in 2026)", depreciableBasis: "11062671", regularDepreciation: "106534",
+      firstYearDeduction: "1640393", firstYearDeductionHigh: "2595142", increasedDeduction: "1533859", increasedDeductionHigh: "2488608",
+      firstYearTaxSavings: "567528", firstYearTaxSavingsHigh: "920785", taxBenefitOn: "extra", assumedTaxRate: "37", auditSupport: "Audit representation included, uncapped" },
+    b: { fee: "8900", siteVisit: "yes", turnaroundDays: "28", depreciableBasis: "11246250", firstYearDeduction: "2345221.13", acceleratedAmount: "2258803.37",
+      firstYearTaxSavings: "820827.40", taxBenefitOn: "total", assumedTaxRate: "35", includesLookback: "yes", paymentTerms: "$0 at signing, balance on final report", validDays: "30" },
+    c: { fee: "14500", siteVisit: "yes", turnaroundDays: "21", turnaroundDaysHigh: "28", depreciableBasis: "11246250", regularDepreciation: "288365",
+      firstYearDeduction: "3412675", acceleratedAmount: "3206528", firstYearTaxSavings: "1262690", taxBenefitOn: "total",
+      auditSupport: "Full IRS audit support included", paymentTerms: "50% to begin, balance on delivery of the final report" },
+  };
+
+  it("makes the same one-pager Akiva approved: same figures, honest labels, no client name, nothing made up", async () => {
+    const dealId = await newDeal();
+    await suppliers.sendDealToSuppliers(dealId, [S.a, S.b, S.c]);
+    const t = tokensBySupplier();
+    for (const k of ["a", "b", "c"]) expect((await submitForm(t[k], forms[k])).status).toBe(200);
+
+    config.anthropic.apiKey = undefined;
+    await comparison.buildComparison(dealId);
+    const view = (await comparison.loadComparison(dealId))!;
+    expect(view.checks).toEqual([]); // every provider's figures add up
+    expect(view.best).toEqual({ fee: 8550 }); // green only for an outright winner
+    expect(view.rows.map(r => r.key)).not.toContain("savingsPerDollar");
+    const summary = view.comparison.summary;
+    expect(summaryProblems(summary, view.columns, [2_400_000])).toEqual([]);
+    expect(summary).not.toMatch(/Dana|Client|dana\.client/);
+    expect(summary).toContain("Test Supplier B and Test Supplier C give benefits that cannot be compared");
+
+    expect((await comparison.prepareForApproval(dealId)).ok).toBe(true);
+    const [rep] = await sql`select pdf from pdf_reports`;
+    const { extractText } = await import("unpdf");
+    const text = (await extractText(new Uint8Array(rep.pdf), { mergePages: true })).text.replace(/\s+/g, " ");
+    for (const s of ["$8,550", "$8,900", "$14,500", "$820,827 (tax on all year-1 depreciation, regular depreciation included)",
+      "$1,262,690 (tax on all year-1 depreciation, regular depreciation included)", "(tax on the extra deduction from the study)",
+      "4 to 6 weeks", "3 to 4 weeks", "$3,412,675", "$3,206,528", "$288,365", "$106,534", "Not needed (placed in service in 2026)", "Not stated"]) {
+      expect(text).toContain(s);
+    }
+    for (const s of ["Dana", "Client", "dana.client", "(614)", "per $1", "% of basis moved", "Extra year-1 deduction"]) expect(text).not.toContain(s);
+  });
+
+  it("flags figures that don't add up and an AI summary that names the client", async () => {
+    const dealId = await newDeal();
+    await suppliers.sendDealToSuppliers(dealId, [S.a, S.b]);
+    const t = tokensBySupplier();
+    await submitForm(t.a, { ...forms.a, firstYearTaxSavings: "600000" }); // not 1,533,859 × 37%
+    await submitForm(t.b, forms.b);
+    fake.state.aiSummary = "Our pick for Dana: Test Supplier A at $8,550.";
+    await comparison.buildComparison(dealId);
+    const view = (await comparison.loadComparison(dealId))!;
+    expect(view.comparison.summary).not.toContain("Dana");
+    expect(view.comparison.summary_source).toMatch(/named the client/);
+    expect(view.checks.map(c => c.message).join()).toMatch(/does not equal the extra deduction/);
   });
 });

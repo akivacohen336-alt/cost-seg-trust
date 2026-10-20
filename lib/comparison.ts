@@ -1,5 +1,5 @@
 // Phase 7: the one-page comparison, its approval, the branded PDF and sending it.
-import { consistencyChecks, summaryProblems, type CheckWarning } from "./checks";
+import { clientDetailsIn, consistencyChecks, summaryProblems, type CheckWarning } from "./checks";
 import { config } from "./config";
 import { db, logEvent } from "./db";
 import { fallbackSummary, writeComparisonSummary, type ComparisonColumn } from "./ai";
@@ -69,6 +69,7 @@ export async function buildComparison(dealId: string) {
     // An AI summary may only use numbers that are in the table.
     const bad = summaryProblems(summary, view.columns, [Number(view.deal.purchase_price)]);
     if (bad.length) throw new Error(`AI summary used numbers not in the table: ${bad.join(", ")}`);
+    if (clientDetailsIn(summary, view.deal).length) throw new Error("AI summary named the client");
     source = "ai";
   } catch (e) {
     summary = fallbackSummary(view.deal.property_type, view.columns, view.best);

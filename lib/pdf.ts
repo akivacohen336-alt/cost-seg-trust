@@ -84,8 +84,8 @@ export async function renderComparisonPdf(view: ComparisonView): Promise<Uint8Ar
   const facts = [d.property_type, `Purchase price ${formatValue(d.purchase_price, "money")}`];
   if (d.placed_in_service != null) facts.push(`Placed in service ${longDate(d.placed_in_service)}`);
   right(page, facts.join("  |  "), H - 50, 9, reg, rgb(0.85, 0.89, 0.93));
-  const client = `${d.first_name ?? ""} ${d.last_name ?? ""}`.trim();
-  const meta = [client ? `Prepared for ${client}` : "", `CST-${d.number}`, new Date().toLocaleDateString("en-US", { dateStyle: "long", timeZone: "America/New_York" })];
+  // No client name on the one-pager (Akiva, Oct 20).
+  const meta = [`CST-${d.number}`, new Date().toLocaleDateString("en-US", { dateStyle: "long", timeZone: "America/New_York" })];
   right(page, meta.filter(Boolean).join("  |  "), H - 62, 9, reg, rgb(0.85, 0.89, 0.93));
 
   // Table: rows no provider filled in are left out, and the type shrinks
