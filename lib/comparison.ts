@@ -39,7 +39,8 @@ export async function loadComparison(dealId: string): Promise<ComparisonView | n
   const columns = visible.map((q, i) => {
     const { values, calculated } = deriveValues(q.values);
     return {
-      inviteId: q.inviteId, aiFilled: q.aiFilled, calculated,
+      // notes.calculated: figures we added up from the provider's own amounts when entering a quote by hand.
+      inviteId: q.inviteId, aiFilled: q.aiFilled, calculated: [...calculated, ...(q.notes.calculated ?? [])] as QuoteKey[],
       name: comparison.anonymize ? `Provider ${String.fromCharCode(65 + i)}` : q.supplier,
       values: withRatios(values),
     };

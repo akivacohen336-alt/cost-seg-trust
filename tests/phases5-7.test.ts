@@ -497,6 +497,8 @@ describe("the dashboard on its own, with the real Tacoma quotes", () => {
     const t = tokensBySupplier();
     for (const k of ["a", "b", "c"]) expect((await submitForm(t[k], forms[k])).status).toBe(200);
 
+    // SegPro's basis moved is its own 5, 7 and 15-year amounts added up, so it carries the *.
+    await sql`update supplier_quotes set ai_notes = '{"calculated":["acceleratedAmount"]}' where accelerated_amount = 2258803.37`;
     config.anthropic.apiKey = undefined;
     await comparison.buildComparison(dealId);
     const view = (await comparison.loadComparison(dealId))!;
@@ -510,7 +512,7 @@ describe("the dashboard on its own, with the real Tacoma quotes", () => {
     const text = (await extractText(new Uint8Array(rep.pdf), { mergePages: true })).text.replace(/\s+/g, " ");
     for (const s of ["$8,550", "$8,900", "$14,500", "$820,827 (tax on all year-1 depreciation, regular depreciation included)",
       "$1,262,690 (tax on all year-1 depreciation, regular depreciation included)", "(tax on the extra deduction from the study)",
-      "4 to 6 weeks", "3 to 4 weeks", "$3,412,675", "$3,206,528", "$288,365", "$106,534", "Not needed (placed in service in 2026)", "Not stated"]) {
+      "4 to 6 weeks", "3 to 4 weeks", "$3,412,675", "$3,206,528", "$2,258,803 *", "* Added up or divided from that provider's own figures", "$288,365", "$106,534", "Not needed (placed in service in 2026)", "Not stated"]) {
       expect(text).toContain(s);
     }
     for (const s of ["Dana", "Client", "dana.client", "(614)", "per $1", "% of basis moved", "Extra year-1 deduction", "Summary", "Our pick"]) expect(text).not.toContain(s);
