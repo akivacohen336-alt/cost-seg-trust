@@ -160,7 +160,7 @@ export default function Estimator() {
         const e = estimate({ propertyType, price, landShare: LAND_SHARE, month, year, contractBeforeJan2025: false, bracket, life });
         return (
           <div className="mt-4 rounded-lg bg-secondary px-4 py-4 text-center" aria-live="polite">
-            <p className="text-sm text-muted-foreground">Estimated tax savings</p>
+            <p className="text-sm text-muted-foreground">Estimated first-year tax benefit</p>
             <p className="text-2xl sm:text-3xl font-bold text-primary mt-1">{usd(e.taxValue.low)} – {usd(e.taxValue.high)}</p>
           </div>
         );
