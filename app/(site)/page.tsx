@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowRight, Award, Building2, CircleCheckBig, Clock, DollarSign, FileText, Shield, TrendingUp, Users } from "lucide-react";
 import Accordion from "@/components/site/Accordion";
+import Estimator from "@/components/site/Estimator";
 import QuoteForm from "@/components/site/QuoteForm";
 import SiteFooter from "@/components/site/SiteFooter";
 import SiteHeader from "@/components/site/SiteHeader";
@@ -41,20 +42,25 @@ export default function Home() {
           <div className="absolute inset-0 bg-gradient-to-br from-primary/95 via-primary/90 to-primary-glow/85" />
         </div>
         <div className={`absolute inset-0 ${PATTERN} opacity-10`} />
-        <div className="container px-4 mx-auto relative z-10">
-          <div className="max-w-4xl mx-auto text-center">
-            <h1 className="text-5xl md:text-7xl font-bold text-primary-foreground mb-6 animate-in fade-in slide-in-from-bottom-4 duration-1000">
-              Maximize Your Real Estate Tax Benefits
-            </h1>
-            <p className="text-xl md:text-2xl text-primary-foreground/90 mb-8 animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-150">
-              Compare cost segregation services from top providers. Save thousands on your taxes with expert engineering and accounting analysis.
-            </p>
-            <Link
-              href={QUOTE_HREF}
-              className="inline-flex items-center justify-center gap-2 whitespace-nowrap ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 h-11 rounded-md bg-accent hover:bg-accent-glow text-accent-foreground font-semibold px-8 py-6 text-lg shadow-lg hover:shadow-xl transition-all duration-300 animate-in fade-in slide-in-from-bottom-4 delay-300"
-            >
-              Get Free Quotes <ArrowRight className="ml-2 h-5 w-5" />
-            </Link>
+        <div className="container px-4 mx-auto relative z-10 pt-28 sm:pt-36 pb-16 lg:pb-24">
+          <div className="grid lg:grid-cols-[minmax(0,1fr)_minmax(0,30rem)] gap-10 lg:gap-14 items-center max-w-7xl mx-auto">
+            <div className="text-center lg:text-left">
+              <h1 className="text-5xl md:text-7xl lg:text-6xl xl:text-7xl font-bold text-primary-foreground mb-6 animate-in fade-in slide-in-from-bottom-4 duration-1000">
+                Maximize Your Real Estate Tax Benefits
+              </h1>
+              <p className="text-xl md:text-2xl text-primary-foreground/90 mb-8 animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-150">
+                Compare cost segregation services from top providers. Save thousands on your taxes with expert engineering and accounting analysis.
+              </p>
+              <Link
+                href={QUOTE_HREF}
+                className="inline-flex items-center justify-center gap-2 whitespace-nowrap ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 h-11 rounded-md bg-accent hover:bg-accent-glow text-accent-foreground font-semibold px-8 py-6 text-lg shadow-lg hover:shadow-xl transition-all duration-300 animate-in fade-in slide-in-from-bottom-4 delay-300"
+              >
+                Get Free Quotes <ArrowRight className="ml-2 h-5 w-5" />
+              </Link>
+            </div>
+            <div className="animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-300">
+              <Estimator />
+            </div>
           </div>
         </div>
         <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-background to-transparent" />
