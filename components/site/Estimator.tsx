@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { ChevronDown } from "lucide-react";
-import { BRACKETS, FIRST_YEAR, PROPERTY_TYPES, TAX_YEAR, type PropertyTypeKey } from "@/lib/estimator";
+import { BRACKETS, FIRST_YEAR, PROPERTY_TYPES, TAX_YEAR, estimate, roundEstimate, type PropertyTypeKey } from "@/lib/estimator";
+import { btn } from "./ui";
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const YEARS = Array.from({ length: TAX_YEAR - FIRST_YEAR + 1 }, (_, i) => TAX_YEAR - i);
@@ -19,6 +20,10 @@ const fromSlider = (v: number) => {
   const p = MIN_PRICE * Math.pow(MAX_PRICE / MIN_PRICE, v / 1000);
   return p >= 1_000_000 ? Math.round(p / 50_000) * 50_000 : Math.round(p / 5_000) * 5_000;
 };
+// The screenshot has no land input, so a typical 20% land share is assumed.
+const LAND_SHARE = 0.2;
+const usd = (n: number) => `$${roundEstimate(n).toLocaleString("en-US")}`;
+
 const SLIDER_MARKS = [["$150K", MIN_PRICE], ["$1M", 1_000_000], ["$5M", 5_000_000], ["$25M", MAX_PRICE]] as const;
 
 function Select({ id, value, onChange, children }: { id: string; value: string; onChange: (v: string) => void; children: React.ReactNode }) {
@@ -59,6 +64,7 @@ export default function Estimator() {
   const [year, setYear] = useState(TAX_YEAR);
   const [bracket, setBracket] = useState<number>(0.37);
   const [life, setLife] = useState<27.5 | 39>(27.5);
+  const [showEstimate, setShowEstimate] = useState(false);
 
   const type = PROPERTY_TYPES.find(t => t.key === propertyType)!;
 
@@ -147,6 +153,18 @@ export default function Estimator() {
           <p className={hint}>Residential rental is 27.5. Office, retail, industrial and other nonresidential property is 39.</p>
         </div>
       </div>
+      <button type="button" onClick={() => setShowEstimate(true)} className={`${btn.accentLg} w-full mt-5`}>
+        Get my estimate
+      </button>
+      {showEstimate && (() => {
+        const e = estimate({ propertyType, price, landShare: LAND_SHARE, month, year, contractBeforeJan2025: false, bracket, life });
+        return (
+          <div className="mt-4 rounded-lg bg-secondary px-4 py-4 text-center" aria-live="polite">
+            <p className="text-sm text-muted-foreground">Estimated tax savings</p>
+            <p className="text-2xl sm:text-3xl font-bold text-primary mt-1">{usd(e.taxValue.low)} – {usd(e.taxValue.high)}</p>
+          </div>
+        );
+      })()}
       <p className="text-sm text-muted-foreground mt-4">For estimate purposes only. Real numbers will vary.</p>
     </div>
   );
