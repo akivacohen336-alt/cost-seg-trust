@@ -147,6 +147,7 @@ export default function Estimator() {
           <p className={hint}>Residential rental is 27.5. Office, retail, industrial and other nonresidential property is 39.</p>
         </div>
       </div>
+      <p className="text-sm text-muted-foreground mt-4">For estimate purposes only. Real numbers will vary.</p>
     </div>
   );
 }
