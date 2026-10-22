@@ -161,19 +161,6 @@ export default function Estimator() {
         </div>
       </div>
 
-      <div className="mx-5 sm:mx-6 rounded-lg bg-secondary px-4 py-4">
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          {result.catchUp ? `Extra ${TAX_YEAR} deduction (catch-up)` : `Extra first-year deduction`}
-        </p>
-        <p className="text-2xl sm:text-3xl font-bold text-primary mt-0.5">{range(result.deduction.low, result.deduction.high)}</p>
-        <p className="text-sm text-foreground mt-2">
-          Worth up to <span className="font-semibold">{range(result.taxValue.low, result.taxValue.high)}</span> in federal tax at {Math.round(bracket * 100)}%, if you can use the loss this year.
-        </p>
-        {result.bonusRate < 1 && (
-          <p className="text-xs text-muted-foreground mt-1.5">Uses {Math.round(result.bonusRate * 100)}% bonus depreciation for this timing.</p>
-        )}
-      </div>
-
       <div className="px-5 sm:px-6 pt-4 pb-5">
         <Link href={QUOTE_HREF} className={`${btn.accentLg} w-full`}>
           Get real quotes from vetted providers <ArrowRight className="ml-1 h-5 w-5" />
