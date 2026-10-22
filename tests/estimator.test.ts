@@ -20,8 +20,8 @@ describe("homepage estimator", () => {
     const e = estimate(base);
     expect(e.basis).toBe(2_000_000);
     const sl = (12 - 7 + 0.5) / 12 / 27.5;
-    expect(e.deduction.low).toBeCloseTo(2_000_000 * 0.15 * (1 - sl), 2);
-    expect(e.deduction.high).toBeCloseTo(2_000_000 * 0.30 * (1 - sl), 2);
+    expect(e.deduction.low).toBeCloseTo(2_000_000 * 0.14 * (1 - sl), 2);
+    expect(e.deduction.high).toBeCloseTo(2_000_000 * 0.26 * (1 - sl), 2);
     expect(e.taxValue.high).toBeCloseTo(e.deduction.high * 0.37, 2);
     expect(e.catchUp).toBe(false);
   });
@@ -38,7 +38,7 @@ describe("homepage estimator", () => {
     expect(e.catchUp).toBe(true);
     const sl = straightLineThroughTaxYear(1, 2020, 27.5);
     expect(sl).toBeCloseTo((11.5 / 12 + 6) / 27.5, 6);
-    expect(e.deduction.low).toBeCloseTo(2_000_000 * 0.15 * (1 - sl), 2);
+    expect(e.deduction.low).toBeCloseTo(2_000_000 * 0.14 * (1 - sl), 2);
   });
 
   it("is lower when the deal was under contract before Jan 20, 2025", () => {

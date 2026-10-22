@@ -15,18 +15,18 @@ export type PropertyTypeKey =
  * Share of the depreciable building basis a study commonly moves into
  * 5-, 7- and 15-year property. General industry ranges, not any provider's figures.
  */
-export const PROPERTY_TYPES: { key: PropertyTypeKey; label: string; low: number; high: number; life: 27.5 | 39 }[] = [
-  { key: "multifamily", label: "Multifamily (5+ units)", low: 0.15, high: 0.30, life: 27.5 },
-  { key: "small-rental", label: "Single-family or 2-4 unit rental", low: 0.15, high: 0.30, life: 27.5 },
-  { key: "short-term-rental", label: "Short-term rental (Airbnb)", low: 0.20, high: 0.35, life: 39 },
-  { key: "office", label: "Office", low: 0.10, high: 0.25, life: 39 },
-  { key: "retail", label: "Retail / shopping center", low: 0.15, high: 0.30, life: 39 },
-  { key: "industrial", label: "Industrial / warehouse", low: 0.10, high: 0.25, life: 39 },
-  { key: "self-storage", label: "Self-storage", low: 0.25, high: 0.40, life: 39 },
-  { key: "hotel", label: "Hotel / motel", low: 0.20, high: 0.35, life: 39 },
-  { key: "medical", label: "Medical office", low: 0.15, high: 0.30, life: 39 },
-  { key: "restaurant", label: "Restaurant", low: 0.20, high: 0.40, life: 39 },
-  { key: "other", label: "Other commercial", low: 0.10, high: 0.30, life: 39 },
+export const PROPERTY_TYPES: { key: PropertyTypeKey; label: string; typical: number; low: number; high: number; life: 27.5 | 39 }[] = [
+  { key: "multifamily", label: "Multifamily (5+ units)", typical: 0.18, low: 0.14, high: 0.26, life: 27.5 },
+  { key: "small-rental", label: "Single-family or 2-4 unit rental", typical: 0.22, low: 0.15, high: 0.30, life: 27.5 },
+  { key: "short-term-rental", label: "Short-term rental (Airbnb)", typical: 0.28, low: 0.20, high: 0.35, life: 39 },
+  { key: "office", label: "Office", typical: 0.17, low: 0.10, high: 0.25, life: 39 },
+  { key: "retail", label: "Retail / shopping center", typical: 0.22, low: 0.15, high: 0.30, life: 39 },
+  { key: "industrial", label: "Industrial / warehouse", typical: 0.17, low: 0.10, high: 0.25, life: 39 },
+  { key: "self-storage", label: "Self-storage", typical: 0.33, low: 0.25, high: 0.40, life: 39 },
+  { key: "hotel", label: "Hotel / motel", typical: 0.28, low: 0.20, high: 0.35, life: 39 },
+  { key: "medical", label: "Medical office", typical: 0.22, low: 0.15, high: 0.30, life: 39 },
+  { key: "restaurant", label: "Restaurant", typical: 0.30, low: 0.20, high: 0.40, life: 39 },
+  { key: "other", label: "Other commercial", typical: 0.20, low: 0.10, high: 0.30, life: 39 },
 ];
 
 export const BRACKETS = [0.24, 0.32, 0.35, 0.37] as const;
