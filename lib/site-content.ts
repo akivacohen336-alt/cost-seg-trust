@@ -133,7 +133,7 @@ export const ARTICLES: Article[] = [
       `<p>Here is one example from CostSegTrust's own published article, ${link("/articles/cpa-compare-three-providers", "how three providers quoted the same property")}. It is one anonymized engagement, three quotes. It shows the spread in that one case only.</p>`,
       `<table class="w-full border-collapse text-sm my-4"><thead><tr>${th("Property")}${th("Quote A")}${th("Quote B")}${th("Quote C")}</tr></thead><tbody>`,
       `<tr>${td("About $10M industrial property")}${td("$3,950")}${td("$7,470")}${td("$9,500")}</tr></tbody></table>`,
-      `<p class="text-sm">In the published example, the $9,500 quote also lists a site fee. n = 3, one engagement. It illustrates a spread. It is not an average or a typical price.</p>`,
+      `<p class="text-sm">In the published example, the $9,500 quote also lists a site fee. It illustrates a spread. It is not an average or a typical price.</p>`,
       "<p>The highest quote was more than double the lowest. The property was the same. What differed was the scope, the method and the extras in each proposal. That is why the first step in comparing quotes is to line up what each one covers. We make no claim that any one of these quotes was better or worse than the others.</p>",
       `<p>Want fees for your own property? ${link("/start", "Get side-by-side quotes.")}</p>`,
       "<h2>Cost by property type and size</h2>",
