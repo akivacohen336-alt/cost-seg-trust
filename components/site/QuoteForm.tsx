@@ -18,7 +18,9 @@ const DOCS = [
   { key: "prior_depreciation", label: "Prior depreciation schedule", hint: "From your tax return or CPA." },
   { key: "other", label: "Other documents", hint: "Appraisals, rent rolls, improvement invoices, etc." },
 ] as const;
-type DocKey = (typeof DOCS)[number]["key"];
+// A 1031 exchange asks for its closing statement / depreciation schedule as a PDF.
+const EXCHANGE_KEY = "exchange_1031";
+type DocKey = (typeof DOCS)[number]["key"] | typeof EXCHANGE_KEY;
 
 const labelCls = "peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-base font-medium";
 const smallLabelCls = "leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-sm font-medium";
@@ -38,15 +40,15 @@ const uuid = () => crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toStr
 
 type Values = {
   name: string; email: string; phone: string; streetAddress: string; city: string; state: string; zipCode: string;
-  propertyType: string; purchaseDate: string; purchasePrice: string; is1031Exchange: string; exchangeBasis: string;
-  relinquishedProperty: string; relinquishedSaleDate: string; priorDepreciation: string; additionalInfo: string;
+  propertyType: string; purchaseDate: string; purchasePrice: string; is1031Exchange: string;
+  priorDepreciation: string; additionalInfo: string;
 };
 type Extra = { id: string; streetAddress: string; city: string; state: string; zipCode: string; propertyType: string; purchasePrice: string };
 const EMPTY: Values = {
   name: "", email: "", phone: "", streetAddress: "", city: "", state: "", zipCode: "", propertyType: "", purchaseDate: "",
-  purchasePrice: "", is1031Exchange: "", exchangeBasis: "", relinquishedProperty: "", relinquishedSaleDate: "", priorDepreciation: "", additionalInfo: "",
+  purchasePrice: "", is1031Exchange: "", priorDepreciation: "", additionalInfo: "",
 };
-const NO_FILES: Record<DocKey, File[]> = { closing_statement: [], prior_depreciation: [], other: [] };
+const NO_FILES: Record<DocKey, File[]> = { closing_statement: [], prior_depreciation: [], other: [], [EXCHANGE_KEY]: [] };
 
 function validate(v: Values): Partial<Record<keyof Values, string>> {
   const e: Partial<Record<keyof Values, string>> = {};
@@ -62,11 +64,6 @@ function validate(v: Values): Partial<Record<keyof Values, string>> {
   if (!v.purchasePrice) e.purchasePrice = "Purchase price is required";
   else if (!(num(v.purchasePrice) > 0)) e.purchasePrice = "Enter a valid price";
   if (!v.is1031Exchange) e.is1031Exchange = "Please select an option";
-  if (v.is1031Exchange === "yes") {
-    if (!(num(v.exchangeBasis) >= 0)) e.exchangeBasis = "Carried-over basis is required";
-    if (v.relinquishedProperty.trim().length < 3) e.relinquishedProperty = "Relinquished property is required";
-    if (!v.relinquishedSaleDate) e.relinquishedSaleDate = "Sale date is required";
-  }
   if (!v.priorDepreciation) e.priorDepreciation = "Please select an option";
   if (v.additionalInfo.length > 2000) e.additionalInfo = "Additional info must be less than 2000 characters";
   return e;
@@ -84,6 +81,7 @@ export default function QuoteForm({ variant = "marketing", onDone }: { variant?:
   const [files, setFiles] = useState(NO_FILES);
   const [fileError, setFileError] = useState<string | null>(null);
   const [scheduleError, setScheduleError] = useState<string | null>(null);
+  const [exchangeError, setExchangeError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [done, setDone] = useState<Done | null>(null);
@@ -115,11 +113,13 @@ export default function QuoteForm({ variant = "marketing", onDone }: { variant?:
     const ok: File[] = [];
     let problem: string | null = null;
     for (const f of Array.from(list)) {
+      if (key === EXCHANGE_KEY && !/\.pdf$/i.test(f.name)) { problem = `${f.name}: please upload a PDF`; continue; }
       if (!FILE_OK.test(f.name)) { problem = `${f.name}: only PDF, JPG, PNG or HEIC files`; continue; }
       if (f.size > MAX_FILE) { problem = `${f.name}: file must be under 4MB`; continue; }
       ok.push(f);
     }
-    setFileError(problem);
+    if (key === EXCHANGE_KEY) setExchangeError(problem);
+    else setFileError(problem);
     setFiles(fs => ({ ...fs, [key]: [...fs[key], ...ok].slice(0, 5) }));
     if (key === "prior_depreciation" && ok.length) setScheduleError(null);
   }
@@ -138,6 +138,10 @@ export default function QuoteForm({ variant = "marketing", onDone }: { variant?:
       setScheduleError("Please upload the prior depreciation schedule");
       return;
     }
+    if (v.is1031Exchange === "yes" && files[EXCHANGE_KEY].length === 0) {
+      setExchangeError("Please upload the closing statement / depreciation schedule (PDF)");
+      return;
+    }
     setSubmitting(true);
     requestKey.current ||= uuid();
     const is1031 = v.is1031Exchange === "yes";
@@ -151,10 +155,6 @@ export default function QuoteForm({ variant = "marketing", onDone }: { variant?:
       propertyType: v.propertyType, purchaseDate: v.purchaseDate, purchasePrice: v.purchasePrice,
       additionalInfo: v.additionalInfo.trim(),
       "1031 exchange": yesNo(v.is1031Exchange),
-      ...(is1031 ? {
-        "Carried-over basis": v.exchangeBasis, "Relinquished property": v.relinquishedProperty.trim(),
-        "Relinquished property sale date": v.relinquishedSaleDate,
-      } : {}),
       "Placed in service in a previous tax year and already depreciated": yesNo(v.priorDepreciation),
       ...Object.fromEntries(more.map((x, i) => [
         `Additional property ${i + 2}`,
@@ -169,6 +169,7 @@ export default function QuoteForm({ variant = "marketing", onDone }: { variant?:
 
       const failedUploads: string[] = [];
       for (const key of Object.keys(files) as DocKey[]) {
+        if (key === EXCHANGE_KEY && !is1031) continue;
         for (const f of files[key]) {
           const body = new FormData();
           body.set("token", out.uploadToken ?? "");
@@ -200,6 +201,7 @@ export default function QuoteForm({ variant = "marketing", onDone }: { variant?:
           <input type="radio" id={ids[i]} name={name} value={val} checked={v[name] === val} onChange={() => {
             set(name, val);
             if (name === "priorDepreciation" && val === "no") setScheduleError(null);
+            if (name === "is1031Exchange" && val === "no") setExchangeError(null);
           }} className={radioCls} />
           <label htmlFor={ids[i]} className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 font-normal cursor-pointer">{val === "yes" ? "Yes" : "No"}</label>
         </div>
@@ -284,21 +286,23 @@ export default function QuoteForm({ variant = "marketing", onDone }: { variant?:
       {v.is1031Exchange === "yes" && (
         <div className="space-y-4 rounded-md border border-border bg-muted/30 p-4">
           <div className="space-y-2">
-            <label htmlFor="exchangeBasis" className={labelCls}>Carried-over basis *</label>
-            <input id="exchangeBasis" inputMode="numeric" value={v.exchangeBasis} onChange={e => set("exchangeBasis", money(e.target.value))} placeholder="$250,000" className={inputCls} />
-            {err("exchangeBasis")}
-          </div>
-          <div className="space-y-2">
-            <label htmlFor="relinquishedProperty" className={labelCls}>Relinquished property (address or description) *</label>
-            <textarea id="relinquishedProperty" value={v.relinquishedProperty} onChange={e => set("relinquishedProperty", e.target.value)} maxLength={500}
-              placeholder="456 Oak Ave, Austin, TX — 12-unit apartment"
-              className="flex w-full rounded-md border border-input bg-background px-3 py-2 ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 min-h-20 text-base resize-none" />
-            {err("relinquishedProperty")}
-          </div>
-          <div className="space-y-2">
-            <label className={labelCls}>Relinquished property sale date *</label>
-            <DatePicker value={v.relinquishedSaleDate} onChange={d => set("relinquishedSaleDate", d)} />
-            {err("relinquishedSaleDate")}
+            <label htmlFor="doc-exchange_1031" className={labelCls}>Closing statement / depreciation schedule (PDF) *</label>
+            <input id="doc-exchange_1031" type="file" accept=".pdf,application/pdf" multiple className={`${inputCls} file:mr-3`}
+              onChange={e => { addFiles(EXCHANGE_KEY, e.target.files); e.target.value = ""; }} />
+            {files[EXCHANGE_KEY].length > 0 && (
+              <ul className="space-y-1">
+                {files[EXCHANGE_KEY].map((f, i) => (
+                  <li key={`${f.name}-${i}`} className="flex items-center justify-between gap-2 text-sm bg-muted/40 rounded px-2 py-1">
+                    <span className="truncate">{f.name} <span className="text-muted-foreground">({(f.size / 1024 / 1024).toFixed(1)} MB)</span></span>
+                    <button type="button" className={btn.ghostSm} aria-label={`Remove ${f.name}`}
+                      onClick={() => setFiles(fs => ({ ...fs, [EXCHANGE_KEY]: fs[EXCHANGE_KEY].filter((_, j) => j !== i) }))}>
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {exchangeError && <p className={errCls}>{exchangeError}</p>}
           </div>
         </div>
       )}

@@ -9,6 +9,7 @@ const AUDIENCE = "lead-files";
 export const DOC_TYPES: Record<string, string> = {
   closing_statement: "Closing statement",
   prior_depreciation: "Prior depreciation schedule",
+  exchange_1031: "1031 exchange closing statement or depreciation schedule",
   other: "Other document",
 };
 const MAX_FILES_PER_DEAL = 15;
