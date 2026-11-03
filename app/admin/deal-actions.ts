@@ -6,6 +6,9 @@ import { requireAdmin } from "@/lib/admin-auth";
 import { db } from "@/lib/db";
 import { standardizeQuote } from "@/lib/ai";
 import { approveAndSend, buildComparison, prepareForApproval, saveComparisonEdits, unlockComparison } from "@/lib/comparison";
+import { addQuoteByHand } from "@/lib/manual";
+import { QUOTE_FIELDS, type QuoteValues } from "@/lib/quote-fields";
+import { MAX_PDF, quoteSchema } from "@/lib/quote-schema";
 import { resendInvite, runDeadlines, sendDealToSuppliers } from "@/lib/suppliers";
 
 type Result = { ok: boolean; message: string; link?: string };
@@ -98,4 +101,32 @@ export async function latestReportId(dealId: string) {
   await requireAdmin();
   const [r] = await db()`select id from pdf_reports where deal_id = ${dealId} order by created_at desc limit 1`;
   return (r?.id as string) ?? null;
+}
+
+/** "Add a quote by hand": a vendor's quote that came in by email. Emails nobody. */
+export async function addQuoteByHandAction(_: unknown, form: FormData): Promise<Result> {
+  const me = await requireAdmin();
+  const dealId = String(form.get("dealId") ?? ""), supplierId = String(form.get("supplierId") ?? "");
+  if (!/^[0-9a-f-]{36}$/i.test(dealId)) return { ok: false, message: "Unknown deal." };
+  if (!/^[0-9a-f-]{36}$/i.test(supplierId)) return { ok: false, message: "Pick the vendor first." };
+  const raw = Object.fromEntries(Object.keys(quoteSchema.shape).map(k => [k, form.get(k) ?? ""]));
+  const parsed = quoteSchema.safeParse(raw);
+  if (!parsed.success) {
+    const labels = [...new Set(parsed.error.issues.map(i => QUOTE_FIELDS.find(f => f.key === String(i.path[0]))?.label ?? String(i.path[0])))];
+    return { ok: false, message: `Check: ${labels.join(", ")}. Numbers only (no words).` };
+  }
+  let pdf: { filename: string; bytes: Buffer } | null = null;
+  const file = form.get("proposal");
+  if (file && typeof file !== "string" && file.size > 0) {
+    if (file.size > MAX_PDF) return { ok: false, message: "The PDF is over 4 MB." };
+    const bytes = Buffer.from(await file.arrayBuffer());
+    if (bytes.subarray(0, 5).toString() !== "%PDF-") return { ok: false, message: "The proposal must be a PDF." };
+    pdf = { filename: (file.name || "proposal.pdf").replace(/[^\w.\- ]+/g, "_").slice(0, 120), bytes };
+  }
+  const values = parsed.data as QuoteValues;
+  if (values.fee == null) return { ok: false, message: "Enter the vendor's fee." };
+  const comments = String(form.get("comments") ?? "").trim().slice(0, 3000) || null;
+  const r = await addQuoteByHand(dealId, supplierId, values, comments, pdf, me.email);
+  if (r.ok) refresh(dealId);
+  return r;
 }

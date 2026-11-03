@@ -34,7 +34,10 @@ export default async function DealsPage({ searchParams }: { searchParams: Promis
           <h1>Deals</h1>
           <p className="muted small" style={{ margin: "4px 0 0" }}>Every quote request from the website lands here.</p>
         </div>
-        <a className="btn sm" href={`/admin/export${exportQs ? `?${exportQs}` : ""}`}>Export CSV</a>
+        <div className="row">
+          <a className="btn dark sm" href="/admin/clients/new">+ Add client</a>
+          <a className="btn sm" href={`/admin/export${exportQs ? `?${exportQs}` : ""}`}>Export CSV</a>
+        </div>
       </div>
 
       <div className="row">

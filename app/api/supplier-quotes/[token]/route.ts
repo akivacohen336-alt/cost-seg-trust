@@ -1,46 +1,11 @@
 import { after, NextResponse } from "next/server";
-import { z } from "zod";
 import { standardizeQuote } from "@/lib/ai";
-import { STUDY_TYPES, type QuoteValues } from "@/lib/quote-fields";
+import { type QuoteValues } from "@/lib/quote-fields";
+import { MAX_PDF, quoteSchema } from "@/lib/quote-schema";
 import { declineSupplierQuote, submitSupplierQuote } from "@/lib/suppliers";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
-
-const MAX_PDF = 4 * 1024 * 1024; // hosting limits request bodies to about 4.5 MB
-
-const optNum = (max: number) =>
-  z.preprocess(v => (v === "" || v == null ? null : typeof v === "string" ? v.replace(/[$,%\s]/g, "") : v),
-    z.coerce.number().finite().min(0).max(max).nullable());
-const optBool = z.preprocess(v => (v === "yes" ? true : v === "no" ? false : null), z.boolean().nullable());
-const optText = z.preprocess(v => (typeof v === "string" && v.trim() ? v.trim() : null), z.string().max(300).nullable());
-
-const quoteSchema = z.object({
-  fee: optNum(10_000_000),
-  studyType: z.preprocess(v => (v ? v : null), z.enum(STUDY_TYPES).nullable()),
-  siteVisit: optBool,
-  turnaroundDays: optNum(3650),
-  turnaroundDaysHigh: optNum(3650),
-  reclassifiedPct: optNum(100),
-  reclassifiedPctHigh: optNum(100),
-  depreciableBasis: optNum(10_000_000_000),
-  regularDepreciation: optNum(10_000_000_000),
-  firstYearDeduction: optNum(10_000_000_000),
-  firstYearDeductionHigh: optNum(10_000_000_000),
-  increasedDeduction: optNum(10_000_000_000),
-  increasedDeductionHigh: optNum(10_000_000_000),
-  acceleratedAmount: optNum(10_000_000_000),
-  firstYearTaxSavings: optNum(10_000_000_000),
-  firstYearTaxSavingsHigh: optNum(10_000_000_000),
-  taxBenefitOn: z.preprocess(v => (v === "extra" || v === "total" ? v : null), z.enum(["extra", "total"]).nullable()),
-  assumedTaxRate: optNum(100),
-  scopeOfWork: optText,
-  auditSupport: optText,
-  includesLookback: optBool,
-  lookbackNote: optText,
-  paymentTerms: optText,
-  validDays: optNum(3650),
-});
 
 export async function POST(req: Request, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;

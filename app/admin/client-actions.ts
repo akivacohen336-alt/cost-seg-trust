@@ -1,8 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/admin-auth";
 import { db } from "@/lib/db";
+import { addClientByHand } from "@/lib/manual";
+import { PROPERTY_TYPES } from "@/lib/stages";
 import { MAX_CLIENT_FILE, fileTypeFor, safeFilename } from "@/lib/clients";
 
 const isId = (v: unknown): v is string => typeof v === "string" && /^[0-9a-f-]{36}$/i.test(v);
@@ -41,4 +44,27 @@ export async function deleteClientFile(form: FormData) {
   if (!isId(id)) return;
   const [f] = await db()`delete from client_files where id = ${id} returning client_id`;
   if (f) revalidatePath(`/admin/clients/${f.client_id}`);
+}
+
+/** "Add client" on the dashboard: saves the client and their property as a new deal. Emails nobody. */
+export async function addClientAction(_: unknown, form: FormData): Promise<{ error?: string }> {
+  const me = await requireAdmin();
+  const t = (k: string, max = 300) => String(form.get(k) ?? "").trim().slice(0, max);
+  const fullName = t("fullName", 120), email = t("email", 200).toLowerCase();
+  const street = t("street"), city = t("city", 80), state = t("state", 40), propertyType = t("propertyType", 60);
+  if (fullName.length < 2) return { error: "Enter the client's name." };
+  if (!/^\S+@\S+\.\S+$/.test(email)) return { error: "Enter the client's email." };
+  if (!street || !city || !state) return { error: "Enter the property's street, city and state." };
+  if (!(PROPERTY_TYPES as readonly string[]).includes(propertyType)) return { error: "Pick a property type." };
+  const rawPrice = t("purchasePrice", 40).replace(/[$,\s]/g, "");
+  const price = rawPrice ? Number(rawPrice) : undefined;
+  if (price !== undefined && !(isFinite(price) && price > 0 && price <= 1e10)) return { error: "The purchase price isn't a number." };
+  const date = t("placedInService", 10);
+  if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) return { error: "Pick a date for when it was bought / placed in service." };
+  const r = await addClientByHand({
+    fullName, email, phone: t("phone", 40) || undefined, street, city, state, zip: t("zip", 20) || undefined, propertyType,
+    purchasePrice: price, placedInService: date || undefined, landValue: t("landValue", 60) || undefined, notes: t("notes", 2000) || undefined,
+  }, me.email);
+  revalidatePath("/admin"); revalidatePath("/admin/clients");
+  redirect(`/admin/deals/${r.dealId}`);
 }

@@ -5,6 +5,7 @@ import { STAGES, stageLabel } from "@/lib/stages";
 import { changeStage, retryHubSpot, saveNotes, setDealFacts } from "../../../actions";
 import { setDealPartner } from "../../../partner-actions";
 import { StagePill, StageSteps, SyncPill, dateOnly, dateTime, usd } from "@/components/ui";
+import { ManualQuoteForm } from "@/components/ManualQuoteForm";
 import { BuildComparisonButton, InviteActions, SendToSuppliersForm } from "@/components/SupplierActions";
 import { config } from "@/lib/config";
 import { QUOTE_FIELDS, formatValue } from "@/lib/quote-fields";
@@ -63,6 +64,11 @@ export default async function DealPage({ params }: { params: Promise<{ id: strin
   ]);
   const quoted = invites.filter(i => i.status === "submitted").length;
   const room = config.maxSuppliersPerDeal - invites.length;
+  // Vendors a quote can be typed in for: ones on this deal without a quote yet, then (if there's room) the rest.
+  const manualVendors = [
+    ...invites.filter(i => i.status !== "submitted").map(i => ({ id: i.supplier_id as string, name: i.company_name as string, isTest: !!i.is_test, note: "already sent a link" })),
+    ...(room > 0 ? available.map(s => ({ id: s.id as string, name: s.company_name as string, isTest: !!s.is_test })).sort((a, b) => Number(a.isTest) - Number(b.isTest)) : []),
+  ];
   const portal = process.env.HUBSPOT_PORTAL_ID;
 
   return (
@@ -128,7 +134,7 @@ export default async function DealPage({ params }: { params: Promise<{ id: strin
                   return (
                     <tr key={i.id}>
                       <td><b>{i.company_name}</b> {i.is_test ? <span className="pill info">Test</span> : null}
-                        <div className="small muted">Sent {dateTime(i.invited_at)}{i.reminder_sent_at ? " · reminded" : ""}</div>
+                        <div className="small muted">{i.link_sent_count === 0 ? `Added by hand ${dateTime(i.invited_at)}` : `Sent ${dateTime(i.invited_at)}`}{i.reminder_sent_at ? " · reminded" : ""}</div>
                         {i.proposal_filename ? <div className="small"><a href={`/admin/files/proposal/${i.quote_id}`} target="_blank" rel="noreferrer">{i.proposal_filename}</a></div> : null}
                         {i.comments ? <div className="small muted">“{i.comments}”</div> : null}
                         {i.decline_reason ? <div className="small muted">Reason: {i.decline_reason}</div> : null}
@@ -153,6 +159,7 @@ export default async function DealPage({ params }: { params: Promise<{ id: strin
           </div>
         ) : <p className="small muted" style={{ margin: 0 }}>Not sent to any suppliers yet. Suppliers have {config.quoteWindowHours} hours to respond and get one reminder after {config.reminderAfterHours} hours.</p>}
         <SendToSuppliersForm dealId={d.id} room={room} suppliers={room > 0 ? (available as any) : []} />
+        <ManualQuoteForm dealId={d.id} vendors={manualVendors} />
         {quoted > 0 ? (
           <div style={{ display: "grid", gap: 8, borderTop: "1px solid var(--line)", paddingTop: 14 }}>
             <b className="small">One-page comparison {comparison ? <span className="pill">{comparison.status === "awaiting_approval" ? "Awaiting your approval" : comparison.status === "sent" ? "Sent to client" : "Draft"}</span> : null}</b>

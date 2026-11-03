@@ -13,6 +13,7 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
           <h1>Clients</h1>
           <p className="muted small" style={{ margin: "4px 0 0" }}>Each client has a folder with their deals, files and notes.</p>
         </div>
+        <a className="btn dark" href="/admin/clients/new">+ Add client</a>
       </div>
       <form className="filters card" method="get" role="search">
         <label className="field" style={{ flex: 1 }}>Search clients
