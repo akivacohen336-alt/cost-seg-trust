@@ -99,7 +99,7 @@ export const US_STATES: [string, string][] = [
 ];
 
 export type Article = {
-  slug: string; title: string; author: string; date: string; displayDate: string; excerpt: string;
+  slug: string; title: string; seoTitle?: string; seoDescription?: string; author: string; date: string; displayDate: string; excerpt: string;
   related: { href: string; label: string }[];
   /** Trusted HTML written by us (copied from the Lovable site). */
   html: string;
@@ -108,6 +108,7 @@ export type Article = {
 const FAQ_LINK = { href: "/faq", label: "FAQ: Cost Segregation & 2026 Bonus Depreciation" };
 const BONUS_LINK = { href: "/articles/cost-seg-2026-bonus-depreciation", label: "Cost segregation in 2026: why 100% bonus changes the math" };
 const WAREHOUSE_LINK = { href: "/articles/warehouse-self-storage-cost-seg", label: "Cost segregation for warehouses, logistics & self-storage" };
+const PRICE_LINK = { href: "/articles/cost-segregation-study-cost", label: "How much does a cost segregation study cost? 2026 price guide" };
 const CPA_LINK = { href: "/articles/cpa-compare-three-providers", label: "Why CPAs should compare three cost segregation providers" };
 
 const td = (s: string) => `<td class="border border-border px-3 py-2 text-muted-foreground">${s}</td>`;
@@ -115,6 +116,63 @@ const th = (s: string) => `<th class="border border-border px-3 py-2 text-left f
 const link = (href: string, s: string) => `<a class="underline hover:text-foreground" href="${href}">${s}</a>`;
 
 export const ARTICLES: Article[] = [
+  {
+    slug: "how-to-compare-cost-segregation-quotes",
+    title: "Three cost segregation quotes, one building, and a $466,000 gap. Here’s how to compare them.",
+    seoTitle: "How to Compare Cost Segregation Quotes (2026 Owner’s Guide) | CostSegTrust",
+    seoDescription: "Three cost segregation quotes on one building differed by more than 2x on fee. Here’s why quotes differ, what to line up, and the red flags to check.",
+    author: "Staff writer", date: "2026-11-04", displayDate: "November 4, 2026",
+    excerpt: "The cheapest quote promised the biggest tax benefit. Before you pick a cost segregation provider, here’s what to line up, what to ask, and which red flags to watch for.",
+    related: [PRICE_LINK, CPA_LINK, BONUS_LINK],
+    html: [
+      "<p><strong>The cheapest quote promised the biggest tax benefit. Before you pick a cost segregation provider, here’s what to line up, what to ask, and which red flags to watch for.</strong></p>",
+      "<p>Three cost segregation firms looked at the same building: a roughly $10 million industrial property. They worked from the same tax rate, 37%, and the same depreciable basis.</p>",
+      "<p>Their fees ranged from $3,950 to $9,500 plus a site fee. Their estimates of the first-year tax benefit were even further apart: from about $507,000 to about $973,000.</p>",
+      "<p>The cheapest quote claimed the biggest benefit.</p>",
+      "<p>None of the three explained how much of the building it planned to reclassify until it was asked. That one number drove most of the difference.</p>",
+      "<p>This is a real engagement that went through CostSegTrust, with names removed. It shows something many property owners only find out after they sign: cost segregation quotes are not apples to apples, and the headline numbers can hide very different studies.</p>",
+      `<div class="overflow-x-auto"><table class="w-full border-collapse text-sm my-4"><thead><tr>${th("Provider")}${th("Fee quoted")}${th("Claimed first-year net benefit")}</tr></thead><tbody>`,
+      `<tr>${td("A")}${td("$9,500 + site fee")}${td("$506,603")}</tr><tr>${td("B")}${td("$7,470")}${td("$626,336")}</tr><tr>${td("C")}${td("$3,950")}${td("$973,268")}</tr></tbody></table></div>`,
+      `<p class="text-sm">One anonymized engagement on the same ~$10M industrial property. It illustrates a spread. It is not an average.</p>`,
+      "<h2>What you’re actually buying</h2>",
+      "<p>A cost segregation study sorts a building’s parts into tax categories. Some parts, like certain fixtures, finishes, and site work such as parking and landscaping, can be depreciated over 5, 7, or 15 years instead of 27.5 or 39. Under current law, many of those shorter-life parts can also qualify for 100% bonus depreciation in year one if the property was acquired after January 19, 2025.</p>",
+      "<p>So the study decides how much of your purchase price lands in the fast lane. That’s why the claimed benefit varies so much. One provider puts more of the building in short-life categories, another puts in less, and the projected deduction moves with it.</p>",
+      "<p>A bigger number isn’t automatically better. It may be well supported, or it may be aggressive. You can only tell by asking how each provider got there.</p>",
+      "<h2>Why quotes for the same building differ</h2>",
+      "<p>Most of the spread comes down to a few choices each provider makes:</p>",
+      "<p><strong>How much it reclassifies.</strong> This is the biggest driver of the claimed benefit, and the one least likely to appear on the first page of a proposal.</p>",
+      "<p><strong>How it inspects the property.</strong> Some studies are software-generated, some are done virtually, and some include an on-site visit.</p>",
+      "<p><strong>What the fee covers.</strong> Form 3115 paperwork, help filing the return, report revisions, and audit support may be included, extra, or not offered.</p>",
+      "<p><strong>Who does the work.</strong> An engineer, a cost estimator, or software with a review at the end.</p>",
+      "<p>The IRS’s own guide for examiners, the Cost Segregation Audit Technique Guide (Publication 5653), is a useful reference here. It’s blunt about one point: the IRS “has not established any requirements or standards for the preparation of cost segregation studies.”</p>",
+      "<p>In other words, there’s no official template that makes every study the same. Comparing them is your job.</p>",
+      "<h2>Six things to line up before you sign</h2>",
+      "<p>Give every provider the same file: purchase price, purchase date, address, any improvements, your closing statement, and your current depreciation schedule. Then compare these six things:</p>",
+      "<p><strong>1. The reclassification assumption.</strong> Ask each provider what percentage of the basis it expects to move into 5-, 7-, and 15-year property, and why. If one claimed benefit is far above the others, this is usually where the difference lives.</p>",
+      "<p><strong>2. The inspection method.</strong> Will anyone visit the property? The IRS guide says “a quality study includes a site visit.” If a provider skips one, ask why that’s reasonable for your building.</p>",
+      "<p><strong>3. Who prepares and reviews it.</strong> Get names and credentials in writing. The IRS guide treats the preparer’s expertise as part of what makes a study reliable.</p>",
+      "<p><strong>4. Audit support, defined.</strong> “Audit protection” can mean a written response to IRS questions or full representation. Ask which one, for how long, and whether it’s in the fee.</p>",
+      `<p><strong>5. The all-in cost.</strong> Add up the fee, any site or travel fee, Form 3115 and Section 481(a) work if you’re catching up on a property you already own, and help implementing it on your return. Our ${link("/articles/cost-segregation-study-cost", "cost segregation price guide")} lists what’s often included and what’s often extra.</p>`,
+      "<p><strong>6. How the fee is set.</strong> A flat fee based on the property’s size is common. A fee calculated as a percentage of your tax savings is a different thing, and it’s covered under red flags below.</p>",
+      "<h2>Red flags in a proposal</h2>",
+      "<ul><li><strong>A fee tied to your tax savings.</strong> The IRS guide says contingency fees “create the incentive to maximize” what gets classified as short-life property, and tells examiners they “should closely scrutinize studies performed on contingency fees.”</li><li>A guaranteed benefit before anyone has looked at your property.</li><li>No named preparer or reviewer.</li><li>No site visit, and no explanation of why one isn’t needed.</li><li>Audit support that’s vague, excluded, or billed separately without saying so.</li><li>A proposal that leaves Form 3115 or implementation out of the scope when you need them.</li></ul>",
+      "<p>None of these automatically means a study is bad. Each one is a question the provider should be able to answer in writing.</p>",
+      "<h2>Bring in your CPA early</h2>",
+      "<p>A study produces a deduction. Whether you can use it this year is a separate question, and it belongs to your CPA.</p>",
+      `<p>Passive activity rules, real estate professional status, short-term rental rules, how long you plan to hold the property, and what happens when you sell can all change the value of the same study. So can your state, because not every state follows the federal bonus depreciation rules. (More in ${link("/articles/cost-seg-2026-bonus-depreciation", "cost segregation in 2026: why 100% bonus changes the math")}.)</p>`,
+      `<p>Ask your CPA to review the proposals side by side before you sign, not after the report arrives. CPAs who want a process for this can read ${link("/articles/cpa-compare-three-providers", "why CPAs should compare three cost segregation providers")}.</p>`,
+      "<h2>Compare quotes on the same file</h2>",
+      "<p>The simplest way to see the real differences is to put several providers on the same property at the same time. CostSegTrust does that for free: send your property price, purchase date, and address, and we’ll show you proposals side by side so you can compare fee, scope, and method before you choose.</p>",
+      `<p><strong>${link("/start", "Get side-by-side quotes →")}</strong></p>`,
+      "<h2>FAQ</h2>",
+      "<h3>How do I compare cost segregation quotes?</h3><p>Give every provider the same property details, then compare reclassification assumptions, inspection method, preparer, audit support, and all-in cost, not just the fee.</p>",
+      "<h3>Is the cheapest cost segregation study the best deal?</h3><p>Not necessarily. In the example above, the lowest fee came with the most aggressive claimed benefit. Ask each provider to explain its numbers.</p>",
+      "<h3>Should a cost segregation fee be a percentage of my tax savings?</h3><p>Be cautious. The IRS audit guide tells examiners to “closely scrutinize studies performed on contingency fees.”</p>",
+      "<h3>Does a cost segregation study need a site visit?</h3><p>The IRS sets no required standard, but its guide says “a quality study includes a site visit.” If a provider skips one, ask why.</p>",
+      `<p class="text-sm">Sources: IRS Publication 5653, Cost Segregation Audit Technique Guide (rev. 2-2025), ${link("https://www.irs.gov/pub/irs-pdf/p5653.pdf", "irs.gov/pub/irs-pdf/p5653.pdf")}. The guide states it “is not an official pronouncement of the law or the position of the Service.” Three-quote example: CostSegTrust, anonymized engagement.</p>`,
+      `<p class="text-sm">Educational only, not tax, legal, or accounting advice. CostSegTrust does not perform cost segregation studies. Results vary, and primary residences do not qualify. Talk to your CPA before acting.</p>`,
+    ].join(""),
+  },
   {
     slug: "cost-segregation-study-cost",
     title: "How much does a cost segregation study cost? 2026 price guide by property type and size",
