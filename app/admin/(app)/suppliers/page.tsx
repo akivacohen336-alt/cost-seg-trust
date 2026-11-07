@@ -24,8 +24,11 @@ export default async function SuppliersPage() {
                 <td>{s.is_test ? <span className="pill warn">Test</span> : <span className="pill info">Real</span>}</td>
                 <td>{s.active ? <span className="pill good">Active</span> : <span className="pill">Inactive</span>}</td>
                 <td>
-                  <form action={toggleSupplier}><input type="hidden" name="id" value={s.id} />
-                    <button className="btn sm" type="submit">{s.active ? "Deactivate" : "Activate"}</button></form>
+                  <div className="row">
+                    <a className="btn sm" href={`/admin/suppliers/${s.id}/edit`}>Edit</a>
+                    <form action={toggleSupplier}><input type="hidden" name="id" value={s.id} />
+                      <button className="btn sm" type="submit">{s.active ? "Deactivate" : "Activate"}</button></form>
+                  </div>
                 </td>
               </tr>
             ))}
