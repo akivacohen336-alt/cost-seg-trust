@@ -245,3 +245,23 @@ export async function runDeadlines(now = new Date()) {
   }
   return result;
 }
+
+/**
+ * Sends a new real deal to every active real supplier (up to the per-deal
+ * limit) right after it is created. Test deals are never auto-sent. If the
+ * deal is missing the purchase price or in-service date, nothing is sent and
+ * the owners are told to add them and press Send.
+ */
+export async function autoSendToRealSuppliers(dealId: string): Promise<SendResult> {
+  const d = await loadDeal(dealId);
+  if (!d || d.is_test) return { invited: 0, skipped: 0 };
+  const rows = await db()`select id from suppliers where active and not is_test order by created_at limit ${config.maxSuppliersPerDeal}`;
+  if (rows.length === 0) return { invited: 0, skipped: 0 };
+  const r = await sendDealToSuppliers(dealId, rows.map((s: any) => s.id));
+  if (r.error) {
+    await alertOwner(dealId, `CST-${d.number} was NOT sent to suppliers automatically`, `${r.error} Then press Send on the deal page.`, dealLink(dealId));
+  } else if (r.invited > 0) {
+    await logEvent(dealId, "auto_sent_to_suppliers", { invited: r.invited });
+  }
+  return r;
+}

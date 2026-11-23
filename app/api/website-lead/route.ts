@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { afterDealCreated, createDealFromRequest } from "@/lib/deals";
+import { autoSendToRealSuppliers } from "@/lib/suppliers";
 import { ensureSchema } from "@/lib/migrate";
 import { leadFilesToken } from "@/lib/lead-files";
 import { REF_COOKIE, normalizeCode } from "@/lib/partners";
@@ -54,7 +55,7 @@ export async function POST(req: Request) {
     // A partner code in the form wins; on our own site, otherwise the cookie from a partner's /r/ link.
     const ref = normalizeCode(parsed.lead.ref ?? (sameSite ? cookieValue(req, REF_COOKIE) : undefined) ?? "") || undefined;
     const result = await createDealFromRequest({ ...parsed.lead, ref });
-    if (!result.duplicate) await afterDealCreated(result.dealId);
+    if (!result.duplicate) { await afterDealCreated(result.dealId); await autoSendToRealSuppliers(result.dealId).catch(e => console.error("autoSend:", e)); }
     // Our own form then uploads any documents the client attached.
     const uploadToken = sameSite ? await leadFilesToken(result.dealId).catch(() => undefined) : undefined;
     return NextResponse.json({ ok: true, reference: `CST-${result.number}`, uploadToken }, { headers });

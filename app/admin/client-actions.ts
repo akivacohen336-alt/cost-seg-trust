@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/admin-auth";
 import { db } from "@/lib/db";
 import { addClientByHand } from "@/lib/manual";
+import { autoSendToRealSuppliers } from "@/lib/suppliers";
 import { PROPERTY_TYPES } from "@/lib/stages";
 import { MAX_CLIENT_FILE, fileTypeFor, safeFilename } from "@/lib/clients";
 
@@ -65,6 +66,7 @@ export async function addClientAction(_: unknown, form: FormData): Promise<{ err
     fullName, email, phone: t("phone", 40) || undefined, street, city, state, zip: t("zip", 20) || undefined, propertyType,
     purchasePrice: price, placedInService: date || undefined, landValue: t("landValue", 60) || undefined, notes: t("notes", 2000) || undefined,
   }, me.email);
+  if (!r.duplicate) await autoSendToRealSuppliers(r.dealId).catch(e => console.error("autoSend:", e));
   revalidatePath("/admin"); revalidatePath("/admin/clients");
   redirect(`/admin/deals/${r.dealId}`);
 }

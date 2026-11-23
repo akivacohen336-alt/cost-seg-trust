@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { afterDealCreated, createDealFromRequest } from "@/lib/deals";
+import { autoSendToRealSuppliers } from "@/lib/suppliers";
 import { ensureSchema } from "@/lib/migrate";
 import { REF_COOKIE, normalizeCode } from "@/lib/partners";
 import { quoteRequestSchema } from "@/lib/validation";
@@ -32,7 +33,7 @@ export async function POST(req: Request) {
     // The owner alert and HubSpot sync run before we answer, so serverless
     // hosts don't stop them midway. Failures are recorded on the deal and
     // never shown to the client.
-    if (!result.duplicate) await afterDealCreated(result.dealId);
+    if (!result.duplicate) { await afterDealCreated(result.dealId); await autoSendToRealSuppliers(result.dealId).catch(e => console.error("autoSend:", e)); }
     return NextResponse.json({ ok: true, reference: `CST-${result.number}` });
   } catch (e) {
     console.error("quote request failed", e);

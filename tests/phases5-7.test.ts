@@ -438,6 +438,7 @@ describe("real suppliers and test deals", () => {
     const [real] = await sql`insert into suppliers (company_name, email, is_test) values ('Real Co', 'real@example.com', false) returning id`;
     const dealId = await newDeal();
     await sql`update deals set is_test = true where id = ${dealId}`;
+    await sql`delete from supplier_invites where deal_id = ${dealId}`;
     fake.state.emails = [];
     const r = await suppliers.sendDealToSuppliers(dealId, [real.id, S.a]);
     expect(r.error).toMatch(/test deal/);
@@ -453,7 +454,32 @@ describe("real suppliers and test deals", () => {
     // Test suppliers still work on a test deal, and real deals can reach real suppliers.
     expect((await suppliers.sendDealToSuppliers(dealId, [S.a])).invited).toBe(1);
     const realDeal = await newDeal();
-    expect((await suppliers.sendDealToSuppliers(realDeal, [real.id])).invited).toBe(1);
+    expect((await sql`select supplier_id from supplier_invites where deal_id = ${realDeal}`).map((i: any) => i.supplier_id)).toEqual([real.id]);
+  });
+});
+
+describe("auto-send", () => {
+  it("sends a real website deal to every real supplier at once, and never to test suppliers", async () => {
+    await sql`insert into suppliers (company_name, contact_name, email, is_test) values
+      ('Real One', 'Rae', 'one@real.example', false), ('Real Two', null, 'two@real.example', false), ('Gone Co', null, 'gone@real.example', false)`;
+    await sql`update suppliers set active = false where company_name = 'Gone Co'`;
+    const dealId = await newDeal();
+    const invited = await sql`select s.company_name from supplier_invites i join suppliers s on s.id = i.supplier_id where i.deal_id = ${dealId} order by 1`;
+    expect(invited.map((r: any) => r.company_name)).toEqual(["Real One", "Real Two"]);
+    expect(await stageOf(dealId)).toBe("waiting_on_quotes");
+    const emailed = await sql`select recipient from notifications where purpose = 'supplier_invite' and deal_id = ${dealId} order by 1`;
+    expect(emailed.map((n: any) => n.recipient)).toEqual(["one@real.example", "two@real.example"]);
+    // A second submit of the same form (same request key) sends nothing again.
+    expect((await sql`select count(*)::int n from supplier_invites`)[0].n).toBe(2);
+  });
+
+  it("sends nothing to anyone for a test deal", async () => {
+    await sql`insert into suppliers (company_name, email, is_test) values ('Real One', 'one@real.example', false)`;
+    const dealId = (await sql`select id from deals`)[0]?.id;
+    expect(dealId).toBeUndefined();
+    const r = await suppliers.autoSendToRealSuppliers(await newDeal().then(async id => { await sql`update deals set is_test = true where id = ${id}`; await sql`delete from supplier_invites`; return id; }));
+    expect(r).toEqual({ invited: 0, skipped: 0 });
+    expect((await sql`select count(*)::int n from supplier_invites`)[0].n).toBe(0);
   });
 });
 

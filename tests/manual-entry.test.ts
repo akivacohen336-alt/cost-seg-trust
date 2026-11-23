@@ -17,7 +17,7 @@ beforeAll(async () => {
   clientActions = await import("../app/admin/client-actions");
   dealActions = await import("../app/admin/deal-actions");
 });
-afterAll(async () => { await sql`delete from suppliers where email::text like '%@manual-test.example'`; await sql.end(); });
+afterAll(async () => { await sql`truncate supplier_invites cascade`; await sql`delete from suppliers where email::text like '%@manual-test.example'`; await sql.end(); });
 
 const form = (fields: Record<string, string | File>) => { const f = new FormData(); for (const [k, v] of Object.entries(fields)) f.append(k, v); return f; };
 const client = {
@@ -33,21 +33,29 @@ let real: string, real2: string, test: string;
 beforeEach(async () => {
   await sql`truncate client_files, deal_events, notifications, pdf_reports, comparisons, supplier_quotes, supplier_invites, deals, clients restart identity cascade`;
   await sql`delete from suppliers where email::text like '%@manual-test.example'`;
+  await sql`update suppliers set active = false where not is_test`; // only this file's vendors are active
   fetchSpy.mockClear();
   [{ id: real }, { id: real2 }, { id: test }] = await sql`insert into suppliers (company_name, email, is_test) values
     ('Real Co', 'real@manual-test.example', false), ('Other Real Co', 'other@manual-test.example', false), ('Test Co', 'test@manual-test.example', true) returning id`;
 });
 
 describe("Add client", () => {
-  it("makes a real deal for the client and emails nobody", async () => {
+  it("makes a real deal for the client and sends it to every real vendor, never a test vendor", async () => {
     const r: any = await addClient();
     expect(r.to).toMatch(/^\/admin\/deals\/[0-9a-f-]{36}$/);
     const [d] = await sql`select d.*, c.email, c.first_name, c.last_name from deals d join clients c on c.id = d.client_id`;
     expect(d).toMatchObject({ email: "dana.client@example.com", first_name: "Dana", last_name: "Client", is_test: false,
-      property_address: "100 Example Ave, Austin, TX 78701", property_city_state: "Austin, TX 78701", stage: "new_request", utm_source: "Added by hand" });
+      property_address: "100 Example Ave, Austin, TX 78701", property_city_state: "Austin, TX 78701", utm_source: "Added by hand" });
     expect(Number(d.purchase_price)).toBe(2400000);
-    expect((await sql`select count(*)::int n from notifications`)[0].n).toBe(0);
-    expect(fetchSpy).not.toHaveBeenCalled();
+    const invited = (await sql`select supplier_id from supplier_invites`).map((i: any) => i.supplier_id).sort();
+    expect(invited).toEqual([real, real2].sort());
+    expect((await sql`select stage from deals`)[0].stage).toBe("waiting_on_quotes");
+  });
+  it("doesn't auto-send a hand-added deal with no price; nobody hears about it but the owners", async () => {
+    await addClient({ ...client, purchasePrice: "" });
+    expect((await sql`select count(*)::int n from supplier_invites`)[0].n).toBe(0);
+    const sent = await sql`select purpose from notifications`;
+    expect(sent.map((n: any) => n.purpose)).toEqual(["owner_update"]);
   });
   it("says what is missing", async () => {
     expect(await addClient({ ...client, email: "nope" })).toEqual({ error: "Enter the client's email." });
@@ -59,7 +67,12 @@ describe("Add client", () => {
 
 describe("Add a quote by hand", () => {
   let dealId: string;
-  beforeEach(async () => { dealId = ((await addClient()) as any).to.split("/").pop(); });
+  beforeEach(async () => {
+    dealId = ((await addClient()) as any).to.split("/").pop();
+    // Start from a deal nobody was sent yet.
+    await sql`delete from supplier_invites`; await sql`delete from notifications`;
+    await sql`update deals set stage = 'new_request'`; fetchSpy.mockClear();
+  });
   const quote = (supplierId: string, extra: Record<string, string | File> = {}) =>
     dealActions.addQuoteByHandAction(null, form({ dealId, supplierId, fee: "$14,500", firstYearTaxSavings: "1,262,690", taxBenefitOn: "total", siteVisit: "yes", ...extra }));
 
