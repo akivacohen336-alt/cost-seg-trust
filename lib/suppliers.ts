@@ -25,15 +25,31 @@ export function supplierLocation(cityState: string | null | undefined): string |
   return parts.length ? parts.slice(-2).join(", ") : null;
 }
 
+const escRe = (t: string) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/**
+ * The property's street address for suppliers. Emails, phone numbers and the
+ * client's full name are taken out, in case the client typed
+ * them into the address box.
+ */
+export function supplierAddress(d: any): string | null {
+  let a = String(d.property_address ?? "");
+  a = a.replace(/\S*@\S*/g, " ").replace(/\+?\(?\d{3}\)?[\s.-]*\d{3}[\s.-]*\d{4}/g, " ");
+  const name = [d.first_name, d.last_name].map(n => String(n ?? "").trim()).filter(Boolean).join(" ");
+  if (name.length >= 3) a = a.replace(new RegExp(escRe(name).replace(/ /g, "\\s+"), "gi"), " ");
+  const parts = a.split(",").map(p => p.replace(/\s+/g, " ").trim()).filter(Boolean);
+  return parts.length ? parts.join(", ") : null;
+}
+
 /** Land value only when it is a plain amount or percent, never free text. */
 const supplierLandValue = (v: string | null | undefined) =>
   !v ? "Not provided" : /^[\s$\d.,%~kKmM-]+$/.test(v) ? v.trim() : "Provided after engagement";
 
-/** Property facts a supplier may see. Never the client's name, email, phone, street address or notes. */
+/** Property facts a supplier may see. Never the client's name, email, phone or notes. */
 export function supplierFacts(d: any) {
   return [
     ["Property type", d.property_type],
-    ["Location", supplierLocation(d.property_city_state) || "Provided after engagement"],
+    ["Property address", supplierAddress(d) || supplierLocation(d.property_city_state) || "Provided after engagement"],
     ["Purchase price", usd(d.purchase_price)],
     ["Placed in service", fmtDate(d.placed_in_service)],
     ["Land value", supplierLandValue(d.land_value)],

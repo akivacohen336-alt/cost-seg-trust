@@ -114,7 +114,8 @@ describe("phase 5: sending to suppliers", () => {
     for (const e of sent) {
       expect(e.subject).toBe("Quote request CST-1001: Multifamily in Columbus, OH");
       expect(e.text).toMatch(/https:\/\/costsegtrust\.test\/q\/[A-Za-z0-9_-]{43}/);
-      for (const secret of ["Dana", "dana.client@example.com", "555-0142", "118 Maple Row"]) {
+      expect(e.text).toContain("Property address: 118 Maple Row, Columbus, OH");
+      for (const secret of ["Dana", "dana.client@example.com", "555-0142"]) {
         expect(e.html).not.toContain(secret);
         expect(e.text).not.toContain(secret);
       }
@@ -492,6 +493,15 @@ describe("what suppliers can see", () => {
     expect(loc("John Smith, 22 Oak St, Miami, FL")).toBe("Miami, FL");
     expect(loc("call 305-555-0142, john@example.com")).toBe("call");
     expect(loc(null)).toBeNull();
+  });
+  it("shows the street address, without the client's name, email or phone typed into it", () => {
+    const addr = (a: string | null) => suppliers.supplierAddress({ property_address: a, first_name: "John", last_name: "Smith" });
+    expect(addr("22 Oak St, Miami, FL 33131")).toBe("22 Oak St, Miami, FL 33131");
+    expect(addr("22 Oak St Apt 4B, Miami, FL 33131")).toBe("22 Oak St Apt 4B, Miami, FL 33131");
+    expect(addr("John Smith, 22 Oak St, Miami, FL 33131")).toBe("22 Oak St, Miami, FL 33131");
+    expect(addr("22 Oak St, Miami, FL, call 305-555-0142, john@example.com")).toBe("22 Oak St, Miami, FL, call");
+    expect(addr("1 Smith Rd, Austin, TX")).toBe("1 Smith Rd, Austin, TX");
+    expect(addr(null)).toBeNull();
   });
   it("hides a land value that isn't a plain amount", () => {
     const land = (v: string | null) => suppliers.supplierFacts({ property_type: "Office", purchase_price: 1, placed_in_service: "2026-01-01", land_value: v })

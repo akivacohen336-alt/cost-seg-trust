@@ -150,7 +150,7 @@ export async function standardizeQuote(quoteId: string) {
   const form = rowToValues(q);
   for (const k of q.ai_filled_fields as QuoteKey[]) form[k] = null;
   try {
-    const read = await extractStandardQuote({ facts: supplierFacts(d), form, comments: q.comments, pdf: q.proposal_pdf ?? null });
+    const read = await extractStandardQuote({ facts: supplierFacts({ ...d, property_address: null }), form, comments: q.comments, pdf: q.proposal_pdf ?? null });
     // Keep only numbers the proposal itself states; the rest show as "Not stated".
     const text = q.proposal_pdf ? await proposalText(q.proposal_pdf) : null;
     const { kept, rejected } = verifyEvidence(read as QuoteValues, read.evidence as Evidence[], text);

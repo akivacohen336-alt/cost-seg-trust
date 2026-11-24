@@ -35,6 +35,7 @@ beforeEach(async () => {
   fake.reset();
   config.hubspot.token = "test-hubspot-token";
   await sql`truncate deal_events, notifications, comparisons, supplier_quotes, supplier_invites, deals, clients, app_settings restart identity cascade`;
+  await sql`update suppliers set active = false where not is_test`; // nothing in this file auto-sends to vendors
   await sql`alter sequence deal_number_seq restart with 1001`;
 });
 
