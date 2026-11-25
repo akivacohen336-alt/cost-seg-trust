@@ -10,6 +10,7 @@ import { addQuoteByHand } from "@/lib/manual";
 import { QUOTE_FIELDS, type QuoteValues } from "@/lib/quote-fields";
 import { MAX_PDF, quoteSchema } from "@/lib/quote-schema";
 import { resendInvite, runDeadlines, sendDealToSuppliers } from "@/lib/suppliers";
+import { quoteWindowText } from "@/lib/config";
 
 type Result = { ok: boolean; message: string; link?: string };
 const isId = (v: unknown) => typeof v === "string" && /^[0-9a-f-]{36}$/i.test(v);
@@ -26,7 +27,7 @@ export async function sendToSuppliers(_: unknown, form: FormData): Promise<Resul
   const r = await sendDealToSuppliers(dealId, ids);
   refresh(dealId);
   if (r.error) return { ok: false, message: r.error };
-  return { ok: true, message: `Sent to ${r.invited} supplier${r.invited === 1 ? "" : "s"}${r.skipped ? ` (${r.skipped} already had it)` : ""}. The 40-hour clock has started.` };
+  return { ok: true, message: `Sent to ${r.invited} supplier${r.invited === 1 ? "" : "s"}${r.skipped ? ` (${r.skipped} already had it)` : ""}. Suppliers have ${quoteWindowText()} to respond.` };
 }
 
 export async function resendSupplierLink(inviteId: string, dealId: string): Promise<Result> {

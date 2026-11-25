@@ -120,15 +120,16 @@ describe("phase 5: sending to suppliers", () => {
         expect(e.text).not.toContain(secret);
       }
       expect(e.text).toContain("$2,400,000");
+      expect(e.html).toContain("(1 week)");
     }
     // Only a hash of each link is stored.
     const toks = Object.values(tokensBySupplier());
     const invites = await sql`select token_hash, due_at, invited_at from supplier_invites`;
     for (const t of toks) expect(invites.map((i: any) => i.token_hash)).toContain(suppliers.hashToken(t as string));
     expect(JSON.stringify(invites)).not.toContain(toks[0]);
-    // 40-hour window.
+    // 1-week window.
     const hours = (invites[0].due_at - invites[0].invited_at) / 3.6e6;
-    expect(hours).toBeCloseTo(40, 1);
+    expect(hours).toBeCloseTo(168, 1);
 
     expect(await stageOf(dealId)).toBe("waiting_on_quotes");
     expect(fake.state.deals[0].properties.dealstage).toBe(await hsStage("Waiting on Quotes"));
@@ -225,7 +226,7 @@ describe("phase 5: the 40-hour clock", () => {
     expect(await suppliers.runDeadlines()).toEqual({ reminders: 0, expired: 1, closedDeals: 1 });
     expect(await suppliers.runDeadlines()).toEqual({ reminders: 0, expired: 0, closedDeals: 0 });
     expect(await stageOf(dealId)).toBe("quotes_received");
-    expect(fake.state.emails.find(e => e.to.includes("aron.turen@gmail.com")).subject).toBe("CST-1001: 40-hour window closed, 1 of 2 quotes in");
+    expect(fake.state.emails.find(e => e.to.includes("aron.turen@gmail.com")).subject).toBe("CST-1001: 168-hour window closed, 1 of 2 quotes in");
 
     // A late supplier can still answer an expired invite.
     expect((await submitForm(first.b, { fee: "6100" })).status).toBe(200);

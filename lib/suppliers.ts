@@ -1,7 +1,7 @@
 // Phase 5: sending deals to suppliers, personalized secure links, the
 // 40-hour response window, reminders, and supplier responses.
 import { createHash, randomBytes } from "node:crypto";
-import { config } from "./config";
+import { config, quoteWindowText } from "./config";
 import { db, logEvent } from "./db";
 import { loadDeal, setDealStage } from "./deals";
 import { alertOwner, emailHtml, esc, sendEmail, usd } from "./notify";
@@ -64,7 +64,7 @@ async function emailInvite(d: any, supplier: any, token: string, due: Date, kind
     ? `Quote request CST-${d.number}: ${d.property_type} in ${supplierLocation(d.property_city_state) ?? "the US"}`
     : `Reminder: quote request CST-${d.number} is due ${dueText(due)}`;
   const intro = kind === "invite"
-    ? `<p style="margin:0 0 12px">Hi ${esc(supplier.contact_name || supplier.company_name)},</p><p style="margin:0 0 12px">Cost Seg Trust has a new cost segregation opportunity and would like your quote. Please respond by <b>${esc(dueText(due))}</b> (${config.quoteWindowHours} hours).</p>`
+    ? `<p style="margin:0 0 12px">Hi ${esc(supplier.contact_name || supplier.company_name)},</p><p style="margin:0 0 12px">Cost Seg Trust has a new cost segregation opportunity and would like your quote. Please respond by <b>${esc(dueText(due))}</b> (${quoteWindowText()}).</p>`
     : `<p style="margin:0 0 12px">Hi ${esc(supplier.contact_name || supplier.company_name)},</p><p style="margin:0 0 12px">A friendly reminder that your quote for this property is due by <b>${esc(dueText(due))}</b>.</p>`;
   const table = `<table style="border-collapse:collapse;width:100%">${facts.map(([k, v]) =>
     `<tr><td style="padding:5px 0;color:#5B6878;width:150px">${esc(k)}</td><td style="padding:5px 0">${esc(v)}</td></tr>`).join("")}</table>

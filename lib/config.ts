@@ -38,7 +38,7 @@ export const config = {
   },
 
   cronSecret: env("CRON_SECRET"),
-  quoteWindowHours: Number(env("QUOTE_WINDOW_HOURS") ?? 40),
+  quoteWindowHours: Number(env("QUOTE_WINDOW_HOURS") ?? 168), // 1 week
   reminderAfterHours: Number(env("REMINDER_AFTER_HOURS") ?? 24),
   maxSuppliersPerDeal: 10,
 
@@ -57,3 +57,7 @@ export const integrationStatus = () => ({
   ai: !!config.anthropic.apiKey,
   scheduler: !!config.cronSecret,
 });
+
+/** The supplier response window in plain words, e.g. "1 week" or "40 hours". */
+export const quoteWindowText = (h = config.quoteWindowHours) =>
+  h % 168 === 0 ? `${h / 168} week${h === 168 ? "" : "s"}` : h % 24 === 0 ? `${h / 24} days` : `${h} hours`;
